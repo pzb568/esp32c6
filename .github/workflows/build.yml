@@ -9,32 +9,89 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # 📥 拉取代码
     - name: Checkout
       uses: actions/checkout@v4
 
+    # ⚡ 缓存（加速）
+    - name: Cache Arduino
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.arduino15
+          ~/Arduino
+        key: ${{ runner.os }}-arduino
+
+    # 🔧 安装 Arduino CLI
     - name: Install Arduino CLI
       run: |
         curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
         sudo mv bin/arduino-cli /usr/local/bin/
 
-    - name: Setup ESP32 Core
+    # 📦 初始化
+    - name: Init Arduino CLI
       run: |
         arduino-cli config init
         arduino-cli core update-index
-        arduino-cli core install esp32:esp32
 
+    # 🚀 安装 ESP32 Core（锁版本，避免炸）
+    - name: Install ESP32 Core
+      run: |
+        arduino-cli core install esp32:esp32@3.3.7
+
+    # 📚 安装依赖库（完整）
     - name: Install Libraries
       run: |
         arduino-cli lib install "ArduinoJson"
         arduino-cli lib install "PubSubClient"
         arduino-cli lib install "Adafruit NeoPixel"
+        arduino-cli lib install "WiFiManager"
+        arduino-cli lib install "ESP Async WebServer"
+        arduino-cli lib install "AsyncTCP"
 
-    - name: Compile
+    # 🧠 生成版本号
+    - name: Generate Version
+      run: |
+        echo "VERSION=v1.0.${{ github.run_number }}-$(date +'%Y%m%d-%H%M')" >> $GITHUB_ENV
+
+    # 🔨 编译
+    - name: Compile Firmware
       run: |
         arduino-cli compile \
         --fqbn esp32:esp32:esp32c6 \
+        --build-property build.flash_size=16MB \
+        --build-property partition_scheme=min_spiffs \
         --output-dir build \
         .
+
+    # 📦 打包（带版本信息）
+    - name: Package Firmware
+      run: |
+        mkdir package
+        cp build/*.bin package/
+
+        echo "Firmware Version: $VERSION" > package/version.txt
+        echo "Build Time: $(date)" >> package/version.txt
+        echo "Commit: ${{ github.sha }}" >> package/version.txt
+
+        zip -r esp32c6-$VERSION.zip package
+
+    # 📤 上传 Artifact
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: esp32c6-${{ env.VERSION }}
+        path: esp32c6-${{ env.VERSION }}.zip
+
+    # 🚀 自动发布 Release
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ env.VERSION }}
+        name: ESP32C6 Firmware ${{ env.VERSION }}
+        files: esp32c6-${{ env.VERSION }}.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}        .
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
