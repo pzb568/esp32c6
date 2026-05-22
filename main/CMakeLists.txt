@@ -1,0 +1,19 @@
+idf_component_register(
+    SRCS
+        "main.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        nvs_flash
+        esp_wifi
+        esp_http_server
+        esp_http_client
+        esp_tls
+        mqtt
+        driver
+        ir_control
+        audio_pipeline
+        mqtt_client_mgr
+        ai_engine
+        web_server
+)

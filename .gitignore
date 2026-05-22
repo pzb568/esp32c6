@@ -1,0 +1,24 @@
+# ESP-IDF 构建产物
+build/
+sdkconfig
+sdkconfig.old
+dependencies.lock
+managed_components/
+
+# 敏感配置 (不提交API Key)
+main/secrets.h
+secrets.h
+*.key
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
