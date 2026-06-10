@@ -195,7 +195,6 @@ jobs:
           echo "使用 $NPROC 核心并行编译"
           
           idf.py \
-            -DIDF_TARGET=$TARGET \
             build \
             2>&1 | tee build.log
           

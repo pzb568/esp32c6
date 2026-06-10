@@ -11,6 +11,8 @@ idf_component_register(
         esp_tls
         mqtt
         driver
+        json
+        spiffs
         ir_control
         audio_pipeline
         mqtt_client_mgr

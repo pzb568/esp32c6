@@ -1,0 +1,12 @@
+idf_component_register(
+    SRCS
+        "ai_engine.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        nvs_flash
+        esp_http_client
+        esp_tls
+        json
+        ir_control
+)

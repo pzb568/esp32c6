@@ -1,0 +1,11 @@
+idf_component_register(
+    SRCS
+        "audio_pipeline.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        driver
+        esp_http_client
+    PRIV_REQUIRES
+        esp_timer
+)

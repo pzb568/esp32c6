@@ -58,6 +58,23 @@ static void led_init(void)
 }
 static inline void led_set(int gpio, bool on) { gpio_set_level(gpio, on ? 1 : 0); }
 
+/* ── JSON 字符串转义辅助 ──────────────────────── */
+static void json_escape(const char *src, char *dst, size_t dst_size)
+{
+    /* Minimal JSON escape: backslash-escape " and \ and control chars.
+       Truncates with "..." if output exceeds dst_size. */
+    size_t i = 0;
+    while (*src && i < dst_size - 3) {
+        unsigned char c = (unsigned char)*src;
+        if (c == '"' || c == '\\') { dst[i++] = '\\'; dst[i++] = c; }
+        else if (c < 0x20) { dst[i++] = '\\'; dst[i++] = 'n' + (c == '\n' ? 0 : c - 0x20); }  /* approx */
+        else { dst[i++] = c; }
+        src++;
+    }
+    if (*src) { dst[i++] = '.'; dst[i++] = '.'; dst[i++] = '.'; }
+    dst[i] = '\0';
+}
+
 /* ── 语音处理任务 ──────────────────────────────── */
 static void voice_task(void *arg)
 {
@@ -94,10 +111,12 @@ static void voice_task(void *arg)
                     strncpy(g_state.last_reply, result.reply, sizeof(g_state.last_reply)-1);
 
                     /* MQTT 上报AI回复 */
-                    char pub[320];
+                    char escaped[320];
+                    char pub[384];
+                    json_escape(result.reply, escaped, sizeof(escaped));
                     snprintf(pub, sizeof(pub),
                              "{\"reply\":\"%s\",\"cmd_count\":%d}",
-                             result.reply, result.cmd_count);
+                             escaped, result.cmd_count);
                     mqtt_publish(TOPIC_AI_REPLY, pub, 0);
 
                     /* TTS播报 */
@@ -276,7 +295,11 @@ void app_main(void)
 
     /* 启动提示 */
     vTaskDelay(pdMS_TO_TICKS(500));
-    xQueueSend(g_tts_queue, "智能家庭终端已就绪", 0);
+    {
+        char boot_msg[256];
+        strncpy(boot_msg, "智能家庭终端已就绪", sizeof(boot_msg) - 1);
+        xQueueSend(g_tts_queue, boot_msg, 0);
+    }
     mqtt_publish(TOPIC_STATUS, "{\"event\":\"boot_ok\"}", 1);
 
     ESP_LOGI(TAG, "✅ 系统就绪");

@@ -33,6 +33,9 @@ CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y
 CONFIG_ESP_HTTP_CLIENT_ENABLE_HTTPS=y
 
+# ── cJSON ────────────────────────────────────────
+CONFIG_JSON_ENABLE=y
+
 # ── MQTT ─────────────────────────────────────────
 CONFIG_MQTT_PROTOCOL_311=y
 CONFIG_MQTT_TRANSPORT_SSL=y
@@ -41,7 +44,6 @@ CONFIG_MQTT_OUTBOX_EXPIRED_TIMEOUT_MS=30000
 
 # ── I2S (麦克风 + 功放) ──────────────────────────
 CONFIG_SOC_I2S_SUPPORTED=y
-CONFIG_SOC_I2S_NUM=2
 
 # ── RMT (红外发射) ───────────────────────────────
 CONFIG_SOC_RMT_SUPPORTED=y
