@@ -255,6 +255,7 @@ jobs:
           GIT_HASH=$(git rev-parse --short HEAD)
           GIT_TAG=$(git describe --tags --always 2>/dev/null || echo "v0.0.0")
           TIMESTAMP=$(date -u '+%Y%m%d_%H%M%S')
+          PROJECT_NAME=smart_home_terminal
 
           PACKAGE_NAME="${PROJECT_NAME}_${GIT_TAG}_${GIT_HASH}_${TIMESTAMP}"
 
@@ -262,13 +263,19 @@ jobs:
 
           APP_BIN=$(find build -maxdepth 1 -name "*.bin" \
             ! -name "bootloader.bin" \
-            ! -name "partition-*.bin" \
+            ! -name "partition-table.bin" \
             | head -1)
+
+          # 如果找不到则尝试另一种命名格式
+          if [ ! -f "$APP_BIN" ]; then
+            APP_BIN="build/smart_home_terminal.bin"
+          fi
 
           cp "$APP_BIN" firmware_package/${PROJECT_NAME}.bin
 
+          # 复制分区表文件（注意：ESP-IDF生成的是 partition-table.bin 而非 partition-*.bin）
           cp build/bootloader/bootloader.bin firmware_package/
-          cp build/partition_table/partition-table.bin firmware_package/
+          cp build/partition-table.bin firmware_package/
 
           if [ -f build/storage.bin ]; then
             cp build/storage.bin firmware_package/
@@ -451,6 +458,11 @@ jobs:
           - MQTT 智能家居
           - Web 配置界面
           - 红外遥控
+
+          ## 校验和
+          \`\`\`
+          $(cat release_assets/SHA256SUMS.txt 2>/dev/null || echo "校验和未生成")
+          \`\`\`
 
           ## 烧录
           使用 esptool.py 烧录 firmware_package 中的文件。
