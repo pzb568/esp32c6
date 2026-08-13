@@ -17,6 +17,10 @@ on:
         description: 'ESP-IDF Docker 标签'
         required: false
         default: 'release-v5.3'
+        type: choice
+        options:
+          - release-v5.2
+          - release-v5.3
 
 # ═══════════════════════════════════════════════════════
 # 并发控制
@@ -29,7 +33,7 @@ concurrency:
 # 全局环境变量
 # ═══════════════════════════════════════════════════════
 env:
-  IDF_VERSION: ${{ github.event.inputs.idf_version || 'release-v5.3' }}
+  IDF_VERSION: "release-v5.3"
   TARGET: esp32c6
   PROJECT_NAME: smart_home_terminal
 
