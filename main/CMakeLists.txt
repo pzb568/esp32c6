@@ -8,7 +8,6 @@ idf_component_register(
         esp_wifi
         esp_http_server
         esp_http_client
-        esp_tls
         mqtt
         driver
         json
