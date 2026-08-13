@@ -161,19 +161,30 @@ jobs:
       # ────────────────────────────────────────────────
       - name: 打印构建环境
         run: |
-          echo "══════════════════════════════"
+          echo "�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═"
           echo "ESP-IDF:  $IDF_VERSION"
           echo "TARGET:   $TARGET"
           echo "Runner:   ${{ runner.os }}"
           echo "Branch:   ${{ github.ref_name }}"
           echo "Commit:   ${{ github.sha }}"
-          echo "══════════════════════════════"
-
+          echo "�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═"
+          
           . $IDF_PATH/export.sh
-
+          
           idf.py --version
           python --version
           git --version
+          
+          # �� 调试：�检查esp_tls组件是否存在
+          echo "�检查ESP-IDF组件目录..."
+          ls -la $IDF_PATH/components/ | grep esp_tls || echo "未�找到esp_tls组件"
+          if [ -d "$IDF_PATH/components/esp_tls" ]; then
+            echo "��✅ esp_tls组件存在于: $IDF_PATH/components/esp_tls"
+          else
+            echo "��❌ esp_tls组件未�找到！"
+            # 列出所有以esp_t开头的组件
+            ls $IDF_PATH/components/ | grep ^esp_t || echo "没有�找到esp_t*组件"
+          fi
 
       # ────────────────────────────────────────────────
       # 设置芯片目标
