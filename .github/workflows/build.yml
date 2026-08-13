@@ -167,13 +167,18 @@ jobs:
           echo "Runner:   ${{ runner.os }}"
           echo "Branch:   ${{ github.ref_name }}"
           echo "Commit:   ${{ github.sha }}"
-          echo "�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═"
+          echo "�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═"
           
           . $IDF_PATH/export.sh
           
           idf.py --version
           python --version
           git --version
+          
+      - name: � 添加 ESP-TLS 依�赖
+        run: |
+          . $IDF_PATH/export.sh
+          idf.py add-dependency esp_tls
           
           # �� 调试：�检查esp_tls组件是否存在
           echo "�检查ESP-IDF组件目录..."
