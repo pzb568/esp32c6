@@ -19,7 +19,6 @@ on:
         default: 'release-v5.3'
         type: choice
         options:
-          - release-v5.2
           - release-v5.3
 
 # ═══════════════════════════════════════════════════════
@@ -407,22 +406,15 @@ jobs:
   # Job 3 - 多版本兼容性测试
   # ═════════════════════════════════════════════════════
   compat-test:
-    name: 🧪 兼容性测试 (${{ matrix.idf_version }})
+    name: 🧪 兼容性测试
     runs-on: ubuntu-22.04
 
     needs: lint
 
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
 
-    strategy:
-      fail-fast: false
-      matrix:
-        idf_version:
-          - release-v5.2
-          - release-v5.3
-
     container:
-      image: espressif/idf:${{ matrix.idf_version }}
+      image: espressif/idf:release-v5.3
       options: --user root
 
     steps:
@@ -447,7 +439,7 @@ jobs:
 
           idf.py build
 
-          echo "✅ ${{ matrix.idf_version }} 编译通过"
+          echo "✅ ESP-IDF v5.3 编译通过"
 
   # ═════════════════════════════════════════════════════
   # Job 4 - Release
@@ -458,7 +450,6 @@ jobs:
 
     needs:
       - build
-      - compat-test
 
     if: startsWith(github.ref, 'refs/tags/v')
 
