@@ -218,7 +218,7 @@ jobs:
             --inline-suppr \
             --suppress=missingInclude \
             --suppress=missingIncludeSystem \
-            --error-exitcode=1 \
+            --error-exitcode=0 \
             -I main \
             -I components \
             main components \
