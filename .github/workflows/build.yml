@@ -2,14 +2,19 @@ name: 🏠 ESP32-C6 智能家庭终端 自动编译
 
 on:
   push:
-    branches: [ main, develop ]
+    branches:
+      - main
+      - develop
+    tags:
+      - 'v*'
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - '.gitignore'
 
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
 
   workflow_dispatch:
     inputs:
@@ -32,7 +37,7 @@ concurrency:
 # 全局环境变量
 # ═══════════════════════════════════════════════════════
 env:
-  IDF_VERSION: "release-v5.3"
+  IDF_VERSION: ${{ github.event.inputs.idf_version || 'release-v5.3' }}
   TARGET: esp32c6
   PROJECT_NAME: smart_home_terminal
 
@@ -47,18 +52,29 @@ jobs:
 
     steps:
 
+      # ────────────────────────────────────────────────
+      # 检出代码
+      # ────────────────────────────────────────────────
       - name: 检出代码
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: recursive
 
+      # ────────────────────────────────────────────────
+      # 检查必要文件
+      # ────────────────────────────────────────────────
       - name: 检查必要文件
+        shell: bash
         run: |
+          set -euo pipefail
+
           echo "════════ 项目结构检查 ════════"
 
           required_files=(
             "CMakeLists.txt"
             "main/CMakeLists.txt"
+            "main/main.c"
             "sdkconfig.defaults"
             "partitions.csv"
           )
@@ -66,25 +82,107 @@ jobs:
           missing=0
 
           for f in "${required_files[@]}"; do
-            if [ ! -f "$f" ]; then
+            if [[ ! -f "$f" ]]; then
               echo "❌ 缺失: $f"
-              missing=$((missing+1))
+              missing=$((missing + 1))
             else
               echo "✅ 存在: $f"
             fi
           done
 
-          if [ $missing -ne 0 ]; then
+          if (( missing > 0 )); then
+            echo "❌ 项目结构检查失败"
             exit 1
           fi
 
+      # ────────────────────────────────────────────────
+      # 检查组件
+      # ────────────────────────────────────────────────
+      - name: 检查自定义组件
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "════════ 自定义组件检查 ════════"
+
+          required_components=(
+            "components/ir_control/CMakeLists.txt"
+            "components/audio/CMakeLists.txt"
+            "components/mqtt_client/CMakeLists.txt"
+            "components/ai_engine/CMakeLists.txt"
+            "components/web_server/CMakeLists.txt"
+          )
+
+          missing=0
+
+          for f in "${required_components[@]}"; do
+            if [[ ! -f "$f" ]]; then
+              echo "❌ 缺失: $f"
+              missing=$((missing + 1))
+            else
+              echo "✅ 存在: $f"
+            fi
+          done
+
+          if (( missing > 0 )); then
+            echo "❌ 自定义组件检查失败"
+            exit 1
+          fi
+
+      # ────────────────────────────────────────────────
+      # 检查组件名称
+      # ────────────────────────────────────────────────
+      - name: 检查组件依赖声明
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "════════ 组件依赖检查 ════════"
+
+          if grep -q 'audio_pipeline' main/CMakeLists.txt; then
+            echo "❌ main/CMakeLists.txt 仍然使用错误组件名: audio_pipeline"
+            echo "   正确组件名应该是: audio"
+            exit 1
+          fi
+
+          if grep -q 'mqtt_client_mgr' main/CMakeLists.txt; then
+            echo "❌ main/CMakeLists.txt 仍然使用错误组件名: mqtt_client_mgr"
+            echo "   正确组件名应该是: mqtt_client"
+            exit 1
+          fi
+
+          required_components=(
+            "ir_control"
+            "audio"
+            "mqtt_client"
+            "ai_engine"
+            "web_server"
+          )
+
+          for component in "${required_components[@]}"; do
+            if grep -qE "^[[:space:]]*${component}[[:space:]]*$" main/CMakeLists.txt; then
+              echo "✅ main → ${component}"
+            else
+              echo "⚠️ main/CMakeLists.txt 未直接声明: ${component}"
+            fi
+          done
+
+      # ────────────────────────────────────────────────
+      # 安装 cppcheck
+      # ────────────────────────────────────────────────
       - name: 安装 cppcheck
         run: |
           sudo apt-get update
           sudo apt-get install -y cppcheck
 
+      # ────────────────────────────────────────────────
+      # C/C++ 静态检查
+      # ────────────────────────────────────────────────
       - name: C/C++ 静态检查
+        shell: bash
         run: |
+          set -o pipefail
+
           cppcheck \
             --enable=warning,style,performance \
             --inline-suppr \
@@ -96,12 +194,16 @@ jobs:
             main components \
             2>&1 | tee cppcheck_report.txt
 
+      # ────────────────────────────────────────────────
+      # 上传检查报告
+      # ────────────────────────────────────────────────
       - name: 上传检查报告
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cppcheck-report
           path: cppcheck_report.txt
+          if-no-files-found: ignore
           retention-days: 7
 
   # ═════════════════════════════════════════════════════
@@ -129,87 +231,72 @@ jobs:
           fetch-depth: 0
 
       # ────────────────────────────────────────────────
-      # 修复 Git dubious ownership
+      # Git safe.directory
       # ────────────────────────────────────────────────
       - name: 修复 Git safe.directory
         run: |
           git config --global --add safe.directory '*'
 
       # ────────────────────────────────────────────────
-      # 缓存
+      # 缓存 ESP-IDF 工具链
       # ────────────────────────────────────────────────
       - name: 缓存 IDF 工具链
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.espressif
-            /root/.espressif
-          key: idf-tools-${{ env.IDF_VERSION }}-${{ runner.os }}
+          path: /root/.espressif
+          key: idf-tools-${{ env.IDF_VERSION }}-${{ runner.os }}-${{ runner.arch }}
           restore-keys: |
-            idf-tools-${{ env.IDF_VERSION }}-
-
-      - name: 缓存 build 目录
-        uses: actions/cache@v4
-        with:
-          path: build
-          key: build-${{ env.TARGET }}-${{ hashFiles('**/*.c', '**/*.h', '**/*.cpp', '**/*.hpp', 'sdkconfig.defaults') }}
-          restore-keys: |
-            build-${{ env.TARGET }}-
+            idf-tools-${{ env.IDF_VERSION }}-${{ runner.os }}-
 
       # ────────────────────────────────────────────────
-      # 构建环境
+      # 打印构建环境
       # ────────────────────────────────────────────────
       - name: 打印构建环境
+        shell: bash
         run: |
-          echo "�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═"
+          set -euo pipefail
+
+          echo "════════════════════════════════════════"
           echo "ESP-IDF:  $IDF_VERSION"
           echo "TARGET:   $TARGET"
           echo "Runner:   ${{ runner.os }}"
+          echo "Arch:     ${{ runner.arch }}"
           echo "Branch:   ${{ github.ref_name }}"
           echo "Commit:   ${{ github.sha }}"
-          echo "�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═�═"
-          
-          . $IDF_PATH/export.sh
-          
+          echo "════════════════════════════════════════"
+
+          . "$IDF_PATH/export.sh"
+
           idf.py --version
           python --version
           git --version
-          
-      - name: � 添加 ESP-TLS 依�赖
-        run: |
-          . $IDF_PATH/export.sh
-          idf.py add-dependency esp_tls
-          
-          # �� 调试：�检查esp_tls组件是否存在
-          echo "�检查ESP-IDF组件目录..."
-          ls -la $IDF_PATH/components/ | grep esp_tls || echo "未�找到esp_tls组件"
-          if [ -d "$IDF_PATH/components/esp_tls" ]; then
-            echo "��✅ esp_tls组件存在于: $IDF_PATH/components/esp_tls"
-          else
-            echo "��❌ esp_tls组件未�找到！"
-            # 列出所有以esp_t开头的组件
-            ls $IDF_PATH/components/ | grep ^esp_t || echo "没有�找到esp_t*组件"
-          fi
+          cmake --version
 
       # ────────────────────────────────────────────────
       # 设置芯片目标
       # ────────────────────────────────────────────────
       - name: 配置目标芯片
+        shell: bash
         run: |
-          . $IDF_PATH/export.sh
+          set -euo pipefail
+
+          . "$IDF_PATH/export.sh"
 
           rm -f sdkconfig
           rm -rf build
 
-          idf.py set-target $TARGET
+          idf.py set-target "$TARGET"
 
           echo "✅ 已设置目标芯片: $TARGET"
 
       # ────────────────────────────────────────────────
-      # 版本信息
+      # 生成版本头文件
       # ────────────────────────────────────────────────
       - name: 生成版本头文件
+        shell: bash
         run: |
+          set -euo pipefail
+
           BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
           GIT_HASH=$(git rev-parse --short HEAD)
           GIT_TAG=$(git describe --tags --always 2>/dev/null || echo "v0.0.0")
@@ -232,126 +319,148 @@ jobs:
       # 编译
       # ────────────────────────────────────────────────
       - name: 编译固件
+        shell: bash
         run: |
-          . $IDF_PATH/export.sh
+          set -o pipefail
 
-          idf.py fullclean || true
+          . "$IDF_PATH/export.sh"
+
+          rm -rf build
 
           NPROC=$(nproc)
 
           echo "使用 $NPROC 核心编译"
 
-          idf.py build -j $NPROC 2>&1 | tee build.log
+          idf.py build -j "$NPROC" 2>&1 | tee build.log
 
       # ────────────────────────────────────────────────
       # 固件大小
       # ────────────────────────────────────────────────
       - name: 检查固件大小
+        shell: bash
         run: |
-          . $IDF_PATH/export.sh
+          set -euo pipefail
+
+          . "$IDF_PATH/export.sh"
 
           idf.py size
 
-          APP_BIN=$(find build -maxdepth 1 -name "*.bin" \
-            ! -name "bootloader.bin" \
-            ! -name "partition-table.bin" \
-            | head -1)
+          APP_BIN="build/${PROJECT_NAME}.bin"
 
-          if [ -z "$APP_BIN" ] || [ ! -f "$APP_BIN" ]; then
-            echo "❌ 未找到主固件，尝试使用IDF自带的方法获取..."
-            # 使用idf.py获取固件路径
-            APP_BIN="build/${{ env.PROJECT_NAME }}.bin"
-            if [ ! -f "$APP_BIN" ]; then
-              echo "❌ 主固件不存在: $APP_BIN"
-              ls -la build/*.bin 2>&1 || true
-              exit 1
-            fi
+          if [[ ! -f "$APP_BIN" ]]; then
+            echo "❌ 主固件不存在: $APP_BIN"
+            echo "build目录中的bin文件:"
+            ls -lah build/*.bin 2>/dev/null || true
+            exit 1
           fi
 
           FW_SIZE=$(stat -c%s "$APP_BIN")
 
           echo "固件路径: $APP_BIN"
           echo "固件大小: $((FW_SIZE / 1024)) KB"
+          echo "固件大小: ${FW_SIZE} bytes"
 
       # ────────────────────────────────────────────────
       # 打包
       # ────────────────────────────────────────────────
       - name: 打包固件
+        shell: bash
         run: |
-          # 确保zip已安装
-          apt-get update && apt-get install -y zip tar
+          set -euo pipefail
+
+          apt-get update
+          apt-get install -y zip
 
           GIT_HASH=$(git rev-parse --short HEAD)
           GIT_TAG=$(git describe --tags --always 2>/dev/null || echo "v0.0.0")
           TIMESTAMP=$(date -u '+%Y%m%d_%H%M%S')
-          PROJECT_NAME=smart_home_terminal
 
           PACKAGE_NAME="${PROJECT_NAME}_${GIT_TAG}_${GIT_HASH}_${TIMESTAMP}"
 
           mkdir -p firmware_package
 
-          # 使用idf.py获取准确的固件路径
-          . $IDF_PATH/export.sh
-          APP_BIN=$(idf.py -q get-build-properties | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('app_bin', ''))")
+          APP_BIN="build/${PROJECT_NAME}.bin"
 
-          # 如果idf方法失败，则使用备用方法
-          if [ -z "$APP_BIN" ] || [ ! -f "$APP_BIN" ]; then
-            echo "⚠️  使用备用方法查找固件..."
-            APP_BIN=$(find build -maxdepth 1 -name "*.bin" \
-              ! -name "bootloader.bin" \
-              ! -name "partition-table.bin" \
-              | head -1)
-          fi
-
-          # 最后尝试已知的文件名
-          if [ -z "$APP_BIN" ] || [ ! -f "$APP_BIN" ]; then
-            APP_BIN="build/${PROJECT_NAME}.bin"
+          if [[ ! -f "$APP_BIN" ]]; then
+            echo "❌ 无法找到主固件: $APP_BIN"
+            echo "build目录内容:"
+            ls -lah build/ || true
+            exit 1
           fi
 
           echo "📦 使用固件文件: $APP_BIN"
 
-          if [ ! -f "$APP_BIN" ]; then
-            echo "❌ 无法找到主固件文件！"
-            echo "build目录内容:"
-            ls -la build/*.bin 2>&1 || true
+          # 主固件
+          cp "$APP_BIN" \
+            "firmware_package/${PROJECT_NAME}.bin"
+
+          # Bootloader
+          if [[ ! -f build/bootloader/bootloader.bin ]]; then
+            echo "❌ 缺少 bootloader.bin"
             exit 1
           fi
 
-          cp "$APP_BIN" firmware_package/${PROJECT_NAME}.bin
+          cp build/bootloader/bootloader.bin \
+            firmware_package/
 
-          # 复制启动加载器和分区表
-          cp build/bootloader/bootloader.bin firmware_package/
-          cp build/partition-table.bin firmware_package/
-
-          if [ -f build/storage.bin ]; then
-            cp build/storage.bin firmware_package/
+          # Partition Table
+          if [[ ! -f build/partition-table.bin ]]; then
+            echo "❌ 缺少 partition-table.bin"
+            exit 1
           fi
 
-          sha256sum firmware_package/*.bin \
-            > firmware_package/SHA256SUMS.txt
+          cp build/partition-table.bin \
+            firmware_package/
 
+          # 可选 storage.bin
+          if [[ -f build/storage.bin ]]; then
+            cp build/storage.bin \
+              firmware_package/
+          fi
+
+          # SHA256
+          (
+            cd firmware_package
+            sha256sum *.bin > SHA256SUMS.txt
+          )
+
+          # 烧录说明
           cat > firmware_package/FLASH_README.txt << EOF
-          ESP32-C6 固件烧录说明
+          ESP32-C6 智能家庭终端固件烧录说明
 
-          esptool.py \
-            --chip esp32c6 \
-            --port /dev/ttyUSB0 \
-            --baud 460800 \
-            write_flash \
-            0x0 bootloader.bin \
-            0x8000 partition-table.bin \
+          使用 esptool：
+
+          esptool.py \\
+            --chip esp32c6 \\
+            --port /dev/ttyUSB0 \\
+            --baud 460800 \\
+            write_flash \\
+            0x0 bootloader.bin \\
+            0x8000 partition-table.bin \\
             0x10000 ${PROJECT_NAME}.bin
+
+          如果你的 USB 串口设备不是 /dev/ttyUSB0，
+          请修改 --port 参数。
           EOF
 
-          tar -czf ${PACKAGE_NAME}.tar.gz firmware_package
-          zip -r ${PACKAGE_NAME}.zip firmware_package
+          # TAR
+          tar -czf "${PACKAGE_NAME}.tar.gz" firmware_package
 
-          echo "PACKAGE_NAME=${PACKAGE_NAME}" >> $GITHUB_ENV
+          # ZIP
+          zip -r "${PACKAGE_NAME}.zip" firmware_package
 
-          ls -lh *.tar.gz *.zip
+          echo "PACKAGE_NAME=${PACKAGE_NAME}" >> "$GITHUB_ENV"
+
+          echo "════════ 固件包 ════════"
+          ls -lh \
+            "${PACKAGE_NAME}.tar.gz" \
+            "${PACKAGE_NAME}.zip"
+
+          echo "════════ firmware_package ════════"
+          ls -lh firmware_package/
 
       # ────────────────────────────────────────────────
-      # 上传固件
+      # 上传固件 Artifact
       # ────────────────────────────────────────────────
       - name: 上传固件 Artifact
         uses: actions/upload-artifact@v4
@@ -362,6 +471,7 @@ jobs:
             *.tar.gz
             *.zip
             build.log
+          if-no-files-found: error
           retention-days: 30
 
       # ────────────────────────────────────────────────
@@ -375,6 +485,7 @@ jobs:
           path: |
             build.log
             sdkconfig
+          if-no-files-found: ignore
           retention-days: 14
 
       # ────────────────────────────────────────────────
@@ -382,22 +493,20 @@ jobs:
       # ────────────────────────────────────────────────
       - name: 生成构建摘要
         if: always()
+        shell: bash
         run: |
           GIT_HASH=$(git rev-parse --short HEAD)
           GIT_TAG=$(git describe --tags --always 2>/dev/null || echo "v0.0.0")
 
-          APP_BIN=$(find build -maxdepth 1 -name "*.bin" \
-            ! -name "bootloader.bin" \
-            ! -name "partition-table.bin" \
-            | head -1)
+          APP_BIN="build/${PROJECT_NAME}.bin"
 
-          if [ -z "$APP_BIN" ] || [ ! -f "$APP_BIN" ]; then
-            APP_BIN="build/${{ env.PROJECT_NAME }}.bin"
+          FW_SIZE=0
+
+          if [[ -f "$APP_BIN" ]]; then
+            FW_SIZE=$(stat -c%s "$APP_BIN")
           fi
 
-          FW_SIZE=$(stat -c%s "$APP_BIN" 2>/dev/null || echo 0)
-
-          cat >> $GITHUB_STEP_SUMMARY << EOF
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
           ## 🏠 ESP32-C6 智能家庭终端
 
           | 项目 | 值 |
@@ -410,6 +519,7 @@ jobs:
           | 构建时间 | $(date -u '+%Y-%m-%d %H:%M UTC') |
 
           ### 硬件
+
           - ESP32-C6-DEV-KIT
           - INMP441 I2S 麦克风
           - MAX98357 I2S 功放
@@ -419,15 +529,18 @@ jobs:
           EOF
 
   # ═════════════════════════════════════════════════════
-  # Job 3 - 多版本兼容性测试
+  # Job 3 - ESP-IDF v5.3 兼容性测试
   # ═════════════════════════════════════════════════════
   compat-test:
-    name: 🧪 兼容性测试
+    name: 🧪 ESP-IDF v5.3 兼容性测试
     runs-on: ubuntu-22.04
 
     needs: lint
 
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    if: |
+      github.event_name == 'pull_request' ||
+      github.ref == 'refs/heads/main' ||
+      startsWith(github.ref, 'refs/tags/v')
 
     container:
       image: espressif/idf:release-v5.3
@@ -435,30 +548,42 @@ jobs:
 
     steps:
 
+      # ────────────────────────────────────────────────
+      # 检出代码
+      # ────────────────────────────────────────────────
       - name: 检出代码
         uses: actions/checkout@v4
         with:
+          submodules: recursive
           fetch-depth: 0
 
+      # ────────────────────────────────────────────────
+      # Git safe.directory
+      # ────────────────────────────────────────────────
       - name: 修复 Git safe.directory
         run: |
           git config --global --add safe.directory '*'
 
+      # ────────────────────────────────────────────────
+      # 编译测试
+      # ────────────────────────────────────────────────
       - name: 编译测试
+        shell: bash
         run: |
-          . $IDF_PATH/export.sh
+          set -euo pipefail
+
+          . "$IDF_PATH/export.sh"
 
           rm -f sdkconfig
           rm -rf build
 
           idf.py set-target esp32c6
-
           idf.py build
 
           echo "✅ ESP-IDF v5.3 编译通过"
 
   # ═════════════════════════════════════════════════════
-  # Job 4 - Release
+  # Job 4 - GitHub Release
   # ═════════════════════════════════════════════════════
   release:
     name: 🚀 发布 Release
@@ -474,11 +599,17 @@ jobs:
 
     steps:
 
+      # ────────────────────────────────────────────────
+      # 检出代码
+      # ────────────────────────────────────────────────
       - name: 检出代码
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # ────────────────────────────────────────────────
+      # 下载 Artifact
+      # ────────────────────────────────────────────────
       - name: 下载 Artifact
         uses: actions/download-artifact@v4
         with:
@@ -486,30 +617,62 @@ jobs:
           merge-multiple: true
           path: release_assets
 
+      # ────────────────────────────────────────────────
+      # 检查下载内容
+      # ────────────────────────────────────────────────
       - name: 检查下载内容
+        shell: bash
         run: |
-          echo "📦 下载的release assets:"
-          ls -la release_assets/
+          set -euo pipefail
+
+          echo "📦 下载的 Release Assets:"
+          ls -lah release_assets/
+
           echo ""
-          echo "📂 firmware_package 内容:"
-          ls -la release_assets/firmware_package/ 2>/dev/null || echo "firmware_package目录不存在"
+          echo "📂 firmware_package:"
+          ls -lah release_assets/firmware_package/
 
-      - name: 生成 Release Notes
+      # ────────────────────────────────────────────────
+      # 检查固件包
+      # ────────────────────────────────────────────────
+      - name: 检查固件包
+        shell: bash
         run: |
-          TAG=${GITHUB_REF#refs/tags/}
+          set -euo pipefail
 
-          # 查找SHA256校验和文件
-          SHA256_FILE=""
-          if [ -f "release_assets/firmware_package/SHA256SUMS.txt" ]; then
-            SHA256_FILE="release_assets/firmware_package/SHA256SUMS.txt"
-          elif [ -f "release_assets/SHA256SUMS.txt" ]; then
-            SHA256_FILE="release_assets/SHA256SUMS.txt"
-          fi
+          required_files=(
+            "release_assets/firmware_package/${PROJECT_NAME}.bin"
+            "release_assets/firmware_package/bootloader.bin"
+            "release_assets/firmware_package/partition-table.bin"
+            "release_assets/firmware_package/SHA256SUMS.txt"
+            "release_assets/firmware_package/FLASH_README.txt"
+          )
+
+          for f in "${required_files[@]}"; do
+            if [[ ! -f "$f" ]]; then
+              echo "❌ 缺少: $f"
+              exit 1
+            fi
+
+            echo "✅ $f"
+          done
+
+      # ────────────────────────────────────────────────
+      # 生成 Release Notes
+      # ────────────────────────────────────────────────
+      - name: 生成 Release Notes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF#refs/tags/}"
+          SHA256_FILE="release_assets/firmware_package/SHA256SUMS.txt"
 
           cat > release_notes.md << EOF
           # 🏠 ESP32-C6 智能家庭终端 ${TAG}
 
           ## 功能
+
           - INMP441 I2S 麦克风
           - MAX98357 音频播放
           - DeepSeek AI
@@ -518,6 +681,7 @@ jobs:
           - 红外遥控
 
           ## 硬件接线
+
           | 模块 | ESP32-C6 引脚 |
           |------|--------------|
           | INMP441 SCK | GPIO16 |
@@ -529,26 +693,33 @@ jobs:
           | 红外发射 | GPIO2 |
           | 红外接收 | GPIO3 |
 
-          ## 校验和
+          > ⚠️ 烧录前请确认 GPIO 与当前硬件版本一致。
+
+          ## SHA256
+
           \`\`\`
-          $(cat "$SHA256_FILE" 2>/dev/null || echo "校验和未生成")
+          $(cat "$SHA256_FILE")
           \`\`\`
 
-          ## 烧录说明
-          使用 esptool.py 烧录固件：
+          ## 烧录
+
+          使用 esptool：
 
           \`\`\`bash
-          esptool.py \
-            --chip esp32c6 \
-            --port /dev/ttyUSB0 \
-            --baud 460800 \
-            write_flash \
-            0x0 bootloader.bin \
-            0x8000 partition-table.bin \
-            0x10000 smart_home_terminal.bin
+          esptool.py \\
+            --chip esp32c6 \\
+            --port /dev/ttyUSB0 \\
+            --baud 460800 \\
+            write_flash \\
+            0x0 bootloader.bin \\
+            0x8000 partition-table.bin \\
+            0x10000 ${PROJECT_NAME}.bin
           \`\`\`
           EOF
 
+      # ────────────────────────────────────────────────
+      # 创建 GitHub Release
+      # ────────────────────────────────────────────────
       - name: 创建 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -559,5 +730,6 @@ jobs:
             release_assets/*.zip
             release_assets/firmware_package/*.bin
             release_assets/firmware_package/SHA256SUMS.txt
+            release_assets/firmware_package/FLASH_README.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

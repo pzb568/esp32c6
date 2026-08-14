@@ -14,8 +14,8 @@ idf_component_register(
         json
         spiffs
         ir_control
-        audio_pipeline
-        mqtt_client_mgr
+        audio
+        mqtt_client
         ai_engine
         web_server
 )
