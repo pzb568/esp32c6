@@ -41,6 +41,10 @@ env:
   TARGET: esp32c6
   PROJECT_NAME: smart_home_terminal
 
+  # 固件初始版本
+  # 正式发布从 v0.1 开始
+  BASE_VERSION: '0.1'
+
 jobs:
 
   # ═════════════════════════════════════════════════════
@@ -290,6 +294,33 @@ jobs:
           echo "✅ 已设置目标芯片: $TARGET"
 
       # ────────────────────────────────────────────────
+      # 确定固件版本
+      # ────────────────────────────────────────────────
+      - name: 确定固件版本
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Tag 发布版本
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+
+            if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
+              echo "❌ Tag 格式错误: ${GITHUB_REF_NAME}"
+              echo "   正确格式示例: v0.1、v0.2、v1.0"
+              exit 1
+            fi
+          else
+            # 非 Tag 构建
+            VERSION="${BASE_VERSION}-dev"
+          fi
+
+          echo "FW_VERSION=${VERSION}" >> "$GITHUB_ENV"
+
+          echo "════════ 固件版本 ════════"
+          echo "版本: ${VERSION}"
+
+      # ────────────────────────────────────────────────
       # 生成版本头文件
       # ────────────────────────────────────────────────
       - name: 生成版本头文件
@@ -299,12 +330,11 @@ jobs:
 
           BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
           GIT_HASH=$(git rev-parse --short HEAD)
-          GIT_TAG=$(git describe --tags --always 2>/dev/null || echo "v0.0.0")
 
           cat > main/version.h << EOF
           #pragma once
 
-          #define FW_VERSION       "${GIT_TAG}"
+          #define FW_VERSION       "${FW_VERSION}"
           #define FW_GIT_HASH      "${GIT_HASH}"
           #define FW_BUILD_TIME    "${BUILD_TIME}"
           #define FW_IDF_VERSION   "${IDF_VERSION}"
@@ -356,6 +386,7 @@ jobs:
 
           FW_SIZE=$(stat -c%s "$APP_BIN")
 
+          echo "固件版本: ${FW_VERSION}"
           echo "固件路径: $APP_BIN"
           echo "固件大小: $((FW_SIZE / 1024)) KB"
           echo "固件大小: ${FW_SIZE} bytes"
@@ -372,10 +403,9 @@ jobs:
           apt-get install -y zip
 
           GIT_HASH=$(git rev-parse --short HEAD)
-          GIT_TAG=$(git describe --tags --always 2>/dev/null || echo "v0.0.0")
           TIMESTAMP=$(date -u '+%Y%m%d_%H%M%S')
 
-          PACKAGE_NAME="${PROJECT_NAME}_${GIT_TAG}_${GIT_HASH}_${TIMESTAMP}"
+          PACKAGE_NAME="${PROJECT_NAME}_v${FW_VERSION}_${GIT_HASH}_${TIMESTAMP}"
 
           mkdir -p firmware_package
 
@@ -389,6 +419,7 @@ jobs:
           fi
 
           echo "📦 使用固件文件: $APP_BIN"
+          echo "📦 固件版本: v${FW_VERSION}"
 
           # 主固件
           cp "$APP_BIN" \
@@ -427,6 +458,11 @@ jobs:
           # 烧录说明
           cat > firmware_package/FLASH_README.txt << EOF
           ESP32-C6 智能家庭终端固件烧录说明
+
+          固件版本: v${FW_VERSION}
+          Git Commit: ${GIT_HASH}
+          ESP-IDF: ${IDF_VERSION}
+          芯片: ESP32-C6
 
           使用 esptool：
 
@@ -496,7 +532,6 @@ jobs:
         shell: bash
         run: |
           GIT_HASH=$(git rev-parse --short HEAD)
-          GIT_TAG=$(git describe --tags --always 2>/dev/null || echo "v0.0.0")
 
           APP_BIN="build/${PROJECT_NAME}.bin"
 
@@ -511,7 +546,7 @@ jobs:
 
           | 项目 | 值 |
           |------|------|
-          | 固件版本 | ${GIT_TAG} |
+          | 固件版本 | v${FW_VERSION:-unknown} |
           | Git Commit | \`${GIT_HASH}\` |
           | IDF 版本 | ${IDF_VERSION} |
           | 芯片 | ESP32-C6 |
@@ -548,25 +583,16 @@ jobs:
 
     steps:
 
-      # ────────────────────────────────────────────────
-      # 检出代码
-      # ────────────────────────────────────────────────
       - name: 检出代码
         uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
 
-      # ────────────────────────────────────────────────
-      # Git safe.directory
-      # ────────────────────────────────────────────────
       - name: 修复 Git safe.directory
         run: |
           git config --global --add safe.directory '*'
 
-      # ────────────────────────────────────────────────
-      # 编译测试
-      # ────────────────────────────────────────────────
       - name: 编译测试
         shell: bash
         run: |
@@ -599,17 +625,11 @@ jobs:
 
     steps:
 
-      # ────────────────────────────────────────────────
-      # 检出代码
-      # ────────────────────────────────────────────────
       - name: 检出代码
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # ────────────────────────────────────────────────
-      # 下载 Artifact
-      # ────────────────────────────────────────────────
       - name: 下载 Artifact
         uses: actions/download-artifact@v4
         with:
@@ -617,9 +637,6 @@ jobs:
           merge-multiple: true
           path: release_assets
 
-      # ────────────────────────────────────────────────
-      # 检查下载内容
-      # ────────────────────────────────────────────────
       - name: 检查下载内容
         shell: bash
         run: |
@@ -632,9 +649,6 @@ jobs:
           echo "📂 firmware_package:"
           ls -lah release_assets/firmware_package/
 
-      # ────────────────────────────────────────────────
-      # 检查固件包
-      # ────────────────────────────────────────────────
       - name: 检查固件包
         shell: bash
         run: |
@@ -657,19 +671,28 @@ jobs:
             echo "✅ $f"
           done
 
-      # ────────────────────────────────────────────────
-      # 生成 Release Notes
-      # ────────────────────────────────────────────────
       - name: 生成 Release Notes
         shell: bash
         run: |
           set -euo pipefail
 
           TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Release Tag 格式错误: ${TAG}"
+            echo "   正确格式: v0.1、v0.2、v1.0"
+            exit 1
+          fi
+
           SHA256_FILE="release_assets/firmware_package/SHA256SUMS.txt"
 
           cat > release_notes.md << EOF
-          # 🏠 ESP32-C6 智能家庭终端 ${TAG}
+          # 🏠 ESP32-C6 智能家庭终端 v${VERSION}
+
+          ## 版本
+
+          **v${VERSION}**
 
           ## 功能
 
@@ -717,13 +740,10 @@ jobs:
           \`\`\`
           EOF
 
-      # ────────────────────────────────────────────────
-      # 创建 GitHub Release
-      # ────────────────────────────────────────────────
       - name: 创建 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: ESP32-C6-${{ github.ref_name }}
+          name: ESP32-C6-v${{ github.ref_name }}
           body_path: release_notes.md
           files: |
             release_assets/*.tar.gz
