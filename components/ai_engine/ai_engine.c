@@ -263,7 +263,6 @@ esp_err_t ai_process_audio(const uint8_t *wav, size_t wav_len, ai_result_t *resu
     ESP_LOGI(TAG, "语音处理: %d bytes WAV", (int)wav_len);
 
     /* 更新全局统计 */
-    extern sys_state_t g_state;
     g_state.ai_req_count++;
 
     if (!api_key[0]) {
@@ -296,13 +295,13 @@ esp_err_t ai_process_text(const char *text, ai_result_t *result)
 {
     ESP_LOGI(TAG, "文本处理: \"%s\"", text);
 
-    extern sys_state_t g_state;
     g_state.ai_req_count++;
 
     memset(result, 0, sizeof(ai_result_t));
 
     /* 先尝试本地意图解析 (快速, 离线) */
-    esp_err_t err = ai_parse_intent_local(text, result);
+    esp_err_t err;
+    err = ai_parse_intent_local(text, result);
     if (result->cmd_count > 0) {
         ESP_LOGI(TAG, "本地意图命中: %d 条命令", result->cmd_count);
         return ESP_OK;

@@ -309,7 +309,7 @@ void ir_list_learned(char *buf, size_t size)
                         learned_codes[i].addr,
                         learned_codes[i].cmd);
     }
-    pos += snprintf(buf + pos, size - pos, "]");
+    snprintf(buf + pos, size - pos, "]");
 }
 
 /* ═══════════════════════════════════════════════════
@@ -342,7 +342,6 @@ static size_t nec_encode(rmt_encoder_t *encoder,
         /* 首次调用: 构建 NEC 波形 */
         uint8_t addr = ((const uint8_t*)primary_data)[0];
         uint8_t cmd  = ((const uint8_t*)primary_data)[1];
-        uint32_t data = (addr << 8) | cmd;
 
         int idx = 0;
         /* 引导码: 9ms 高 + 4.5ms 低 */
@@ -781,9 +780,7 @@ esp_err_t ir_learn_load_all(void)
     }
 
     learned_count = 0;
-    for (int i = 0; i < count && learned_count < LEARNED_MAX; i++) {
-        char key[32];
-        /* 尝试读取: 遍历所有可能的键 (dev 0-5, act 1-50) */
+$1        /* 尝试读取: 遍历所有可能的键 (dev 0-5, act 1-50) */
         /* 简化版: 直接尝试读取 key 格式的 NVS 项 */
         /* 这里使用迭代器方式不现实 — 改用固定格式遍历 */
 

@@ -220,10 +220,10 @@ static void status_report_task(void *arg)
 
         char buf[256];
         snprintf(buf, sizeof(buf),
-            "{\"uptime\":%lld,\"free_heap\":%lu,"
-            "\"ir_tx\":%lu,\"ai_req\":%lu,"
+            "{\"uptime\":%lld,\"free_heap\":%zu,"
+            "\"ir_tx\":%u,\"ai_req\":%u,"
             "\"wifi\":%s,\"mqtt\":%s,"
-            "\"ac_temp\":%ld,\"ac_mode\":\"%s\"}",
+            "\"ac_temp\":%d,\"ac_mode\":\"%s\"}",
             esp_timer_get_time()/1000000,
             esp_get_free_heap_size(),
             g_state.ir_tx_count,
