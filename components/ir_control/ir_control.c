@@ -358,7 +358,7 @@ static size_t nec_encode(rmt_encoder_t *encoder,
                      | ((uint32_t)(cmd ^ 0xFF) << 24);
 
         for (int bit = 0; bit < 32; bit++) {
-            if (raw & (1 << bit)) {
+            if (raw & (UINT32_C(1) << bit)) {
                 /* 逻辑1: 560µs高 + 1690µs低 */
                 nec->nec_symbols[idx++] = (rmt_symbol_word_t){
                     .duration0 = 560, .level0 = 1,
