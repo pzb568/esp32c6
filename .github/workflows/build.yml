@@ -3,7 +3,7 @@ name: 🏠 ESP32-C6 智能家庭终端 自动编译
 on:
   push:
     branches:
-      - main
+      - master
       - develop
     tags:
       - 'v*'
@@ -14,7 +14,7 @@ on:
 
   pull_request:
     branches:
-      - main
+      - master
 
   workflow_dispatch:
     inputs:
@@ -26,48 +26,51 @@ on:
         options:
           - release-v5.3
 
-# ═══════════════════════════════════════════════════════
-# 并发控制
-# ═══════════════════════════════════════════════════════
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
-# ═══════════════════════════════════════════════════════
-# 全局环境变量
-# ═══════════════════════════════════════════════════════
 env:
   IDF_VERSION: ${{ github.event.inputs.idf_version || 'release-v5.3' }}
   TARGET: esp32c6
   PROJECT_NAME: smart_home_terminal
 
-  # 固件初始版本
-  # 正式发布从 v0.1 开始
+  # 正式版本从 v0.1 开始
   BASE_VERSION: '0.1'
 
 jobs:
 
-  # ═════════════════════════════════════════════════════
+  # =====================================================
   # Job 1 - 代码检查
-  # ═════════════════════════════════════════════════════
+  # =====================================================
   lint:
     name: 🔍 代码检查
     runs-on: ubuntu-22.04
 
     steps:
 
-      # ────────────────────────────────────────────────
-      # 检出代码
-      # ────────────────────────────────────────────────
       - name: 检出代码
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
 
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
+      # 检查 Git 分支
+      # -------------------------------------------------
+      - name: 检查 Git 状态
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "════════ Git 信息 ════════"
+          echo "当前分支: $(git branch --show-current)"
+          echo "当前提交: $(git rev-parse --short HEAD)"
+          git status --short
+
+      # -------------------------------------------------
       # 检查必要文件
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       - name: 检查必要文件
         shell: bash
         run: |
@@ -99,9 +102,9 @@ jobs:
             exit 1
           fi
 
-      # ────────────────────────────────────────────────
-      # 检查组件
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
+      # 检查自定义组件
+      # -------------------------------------------------
       - name: 检查自定义组件
         shell: bash
         run: |
@@ -133,9 +136,9 @@ jobs:
             exit 1
           fi
 
-      # ────────────────────────────────────────────────
-      # 检查组件名称
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
+      # 检查组件依赖声明
+      # -------------------------------------------------
       - name: 检查组件依赖声明
         shell: bash
         run: |
@@ -171,17 +174,40 @@ jobs:
             fi
           done
 
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
+      # 检查 EXTRA_COMPONENT_DIRS
+      # -------------------------------------------------
+      - name: 检查 CMake 组件配置
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "════════ CMake 组件配置检查 ════════"
+
+          if grep -R \
+            --exclude-dir=.git \
+            --exclude-dir=build \
+            -n 'EXTRA_COMPONENT_DIRS' \
+            CMakeLists.txt main components 2>/dev/null; then
+
+            echo "❌ 检测到 EXTRA_COMPONENT_DIRS"
+            echo "   当前项目使用 components/ 自动发现机制"
+            exit 1
+          fi
+
+          echo "✅ 未使用 EXTRA_COMPONENT_DIRS"
+
+      # -------------------------------------------------
       # 安装 cppcheck
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       - name: 安装 cppcheck
         run: |
           sudo apt-get update
           sudo apt-get install -y cppcheck
 
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       # C/C++ 静态检查
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       - name: C/C++ 静态检查
         shell: bash
         run: |
@@ -198,9 +224,9 @@ jobs:
             main components \
             2>&1 | tee cppcheck_report.txt
 
-      # ────────────────────────────────────────────────
-      # 上传检查报告
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
+      # 上传 cppcheck 报告
+      # -------------------------------------------------
       - name: 上传检查报告
         if: always()
         uses: actions/upload-artifact@v4
@@ -210,9 +236,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # ═════════════════════════════════════════════════════
+
+  # =====================================================
   # Job 2 - 主构建
-  # ═════════════════════════════════════════════════════
+  # =====================================================
   build:
     name: 🔨 编译固件 (${{ github.event.inputs.idf_version || 'release-v5.3' }})
     runs-on: ubuntu-22.04
@@ -225,25 +252,19 @@ jobs:
 
     steps:
 
-      # ────────────────────────────────────────────────
-      # 检出代码
-      # ────────────────────────────────────────────────
       - name: 检出代码
         uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
 
-      # ────────────────────────────────────────────────
-      # Git safe.directory
-      # ────────────────────────────────────────────────
       - name: 修复 Git safe.directory
         run: |
           git config --global --add safe.directory '*'
 
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       # 缓存 ESP-IDF 工具链
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       - name: 缓存 IDF 工具链
         uses: actions/cache@v4
         with:
@@ -252,9 +273,9 @@ jobs:
           restore-keys: |
             idf-tools-${{ env.IDF_VERSION }}-${{ runner.os }}-
 
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       # 打印构建环境
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       - name: 打印构建环境
         shell: bash
         run: |
@@ -276,58 +297,84 @@ jobs:
           git --version
           cmake --version
 
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       # 设置芯片目标
-      # ──────────────────────────────────- name: 配置目标芯片
-  shell: bash
-  run: |
-    set -euo pipefail
+      # -------------------------------------------------
+      - name: 配置目标芯片
+        shell: bash
+        run: |
+          set -euo pipefail
 
-    . "$IDF_PATH/export.sh"
+          . "$IDF_PATH/export.sh"
 
-    echo "════════ Git 工作区检查 ════════"
-    pwd
+          echo "════════ Git 工作区检查 ════════"
+          pwd
 
-    echo "════════ Git HEAD ════════"
-    git rev-parse HEAD
-    git branch -av
+          echo "════════ Git HEAD ════════"
+          git rev-parse HEAD
 
-    echo "════════ components ════════"
-    ls -lah components/
+          echo "════════ Git 分支 ════════"
+          git branch -av
 
-    echo "════════ components/audio ════════"
-    if [[ -d components/audio ]]; then
-      echo "✅ components/audio 存在"
-      ls -lah components/audio/
-    else
-      echo "❌ components/audio 不存在"
-      exit 1
-    fi
+          echo "════════ Git 状态 ════════"
+          git status --short
 
-    echo "════════ Git tracked audio ════════"
-    git ls-files components/audio
+          echo "════════ components ════════"
+          ls -lah components/
 
-    echo "════════ 根 CMakeLists.txt ════════"
-    sed -n '1,80p' CMakeLists.txt
+          echo "════════ components/audio ════════"
 
-    echo "════════ 清理旧构建 ════════"
-    rm -f sdkconfig
-    rm -rf build
+          if [[ -d components/audio ]]; then
+            echo "✅ components/audio 存在"
+            ls -lah components/audio/
+          else
+            echo "❌ components/audio 不存在"
+            exit 1
+          fi
 
-    echo "════════ 设置目标芯片 ════════"
-    idf.py set-target "$TARGET"
+          echo "════════ Git tracked audio ════════"
+          git ls-files components/audio
 
-    echo "✅ 已设置目标芯片: $TARGET"
-      # ────────────────────────────────────────────────
+          echo "════════ 根 CMakeLists.txt ════════"
+          cat CMakeLists.txt
+
+          echo "════════ main/CMakeLists.txt ════════"
+          cat main/CMakeLists.txt
+
+          echo "════════ EXTRA_COMPONENT_DIRS 检查 ════════"
+
+          if grep -R \
+            --exclude-dir=.git \
+            --exclude-dir=build \
+            -n 'EXTRA_COMPONENT_DIRS' \
+            CMakeLists.txt main components 2>/dev/null; then
+
+            echo "❌ 检测到 EXTRA_COMPONENT_DIRS"
+            exit 1
+          else
+            echo "✅ 未检测到 EXTRA_COMPONENT_DIRS"
+          fi
+
+          echo "════════ 清理旧构建 ════════"
+          rm -f sdkconfig
+          rm -rf build
+
+          echo "════════ 设置目标芯片 ════════"
+          idf.py set-target "$TARGET"
+
+          echo "════════ set-target 完成 ════════"
+          echo "Target: $TARGET"
+
+      # -------------------------------------------------
       # 确定固件版本
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       - name: 确定固件版本
         shell: bash
         run: |
           set -euo pipefail
 
-          # Tag 发布版本
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+
             VERSION="${GITHUB_REF_NAME#v}"
 
             if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
@@ -335,19 +382,21 @@ jobs:
               echo "   正确格式示例: v0.1、v0.2、v1.0"
               exit 1
             fi
+
           else
-            # 非 Tag 构建
+
             VERSION="${BASE_VERSION}-dev"
+
           fi
 
           echo "FW_VERSION=${VERSION}" >> "$GITHUB_ENV"
 
           echo "════════ 固件版本 ════════"
-          echo "版本: ${VERSION}"
+          echo "版本: v${VERSION}"
 
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       # 生成版本头文件
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       - name: 生成版本头文件
         shell: bash
         run: |
@@ -370,9 +419,9 @@ jobs:
           echo "════════ version.h ════════"
           cat main/version.h
 
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       # 编译
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       - name: 编译固件
         shell: bash
         run: |
@@ -380,17 +429,16 @@ jobs:
 
           . "$IDF_PATH/export.sh"
 
-          rm -rf build
-
           NPROC=$(nproc)
 
+          echo "════════ 开始编译 ════════"
           echo "使用 $NPROC 核心编译"
 
           idf.py build -j "$NPROC" 2>&1 | tee build.log
 
-      # ────────────────────────────────────────────────
-      # 固件大小
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
+      # 检查固件大小
+      # -------------------------------------------------
       - name: 检查固件大小
         shell: bash
         run: |
@@ -411,14 +459,15 @@ jobs:
 
           FW_SIZE=$(stat -c%s "$APP_BIN")
 
-          echo "固件版本: ${FW_VERSION}"
-          echo "固件路径: $APP_BIN"
-          echo "固件大小: $((FW_SIZE / 1024)) KB"
-          echo "固件大小: ${FW_SIZE} bytes"
+          echo "════════ 固件信息 ════════"
+          echo "版本: v${FW_VERSION}"
+          echo "路径: $APP_BIN"
+          echo "大小: $((FW_SIZE / 1024)) KB"
+          echo "大小: ${FW_SIZE} bytes"
 
-      # ────────────────────────────────────────────────
-      # 打包
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
+      # 打包固件
+      # -------------------------------------------------
       - name: 打包固件
         shell: bash
         run: |
@@ -438,15 +487,13 @@ jobs:
 
           if [[ ! -f "$APP_BIN" ]]; then
             echo "❌ 无法找到主固件: $APP_BIN"
-            echo "build目录内容:"
             ls -lah build/ || true
             exit 1
           fi
 
-          echo "📦 使用固件文件: $APP_BIN"
-          echo "📦 固件版本: v${FW_VERSION}"
+          echo "📦 固件: $APP_BIN"
+          echo "📦 版本: v${FW_VERSION}"
 
-          # 主固件
           cp "$APP_BIN" \
             "firmware_package/${PROJECT_NAME}.bin"
 
@@ -468,7 +515,7 @@ jobs:
           cp build/partition-table.bin \
             firmware_package/
 
-          # 可选 storage.bin
+          # 可选 storage
           if [[ -f build/storage.bin ]]; then
             cp build/storage.bin \
               firmware_package/
@@ -504,10 +551,7 @@ jobs:
           请修改 --port 参数。
           EOF
 
-          # TAR
           tar -czf "${PACKAGE_NAME}.tar.gz" firmware_package
-
-          # ZIP
           zip -r "${PACKAGE_NAME}.zip" firmware_package
 
           echo "PACKAGE_NAME=${PACKAGE_NAME}" >> "$GITHUB_ENV"
@@ -520,9 +564,9 @@ jobs:
           echo "════════ firmware_package ════════"
           ls -lh firmware_package/
 
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       # 上传固件 Artifact
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       - name: 上传固件 Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -535,9 +579,9 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       # 编译失败日志
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       - name: 上传失败日志
         if: failure()
         uses: actions/upload-artifact@v4
@@ -549,9 +593,9 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       # 构建摘要
-      # ────────────────────────────────────────────────
+      # -------------------------------------------------
       - name: 生成构建摘要
         if: always()
         shell: bash
@@ -588,9 +632,10 @@ jobs:
           - DeepSeek AI
           EOF
 
-  # ═════════════════════════════════════════════════════
+
+  # =====================================================
   # Job 3 - ESP-IDF v5.3 兼容性测试
-  # ═════════════════════════════════════════════════════
+  # =====================================================
   compat-test:
     name: 🧪 ESP-IDF v5.3 兼容性测试
     runs-on: ubuntu-22.04
@@ -599,7 +644,7 @@ jobs:
 
     if: |
       github.event_name == 'pull_request' ||
-      github.ref == 'refs/heads/main' ||
+      github.ref == 'refs/heads/master' ||
       startsWith(github.ref, 'refs/tags/v')
 
     container:
@@ -625,6 +670,29 @@ jobs:
 
           . "$IDF_PATH/export.sh"
 
+          echo "════════ ESP-IDF v5.3 兼容性测试 ════════"
+
+          echo "Git HEAD:"
+          git rev-parse HEAD
+
+          echo "components:"
+          ls -lah components/
+
+          if [[ ! -d components/audio ]]; then
+            echo "❌ components/audio 不存在"
+            exit 1
+          fi
+
+          if grep -R \
+            --exclude-dir=.git \
+            --exclude-dir=build \
+            -n 'EXTRA_COMPONENT_DIRS' \
+            CMakeLists.txt main components 2>/dev/null; then
+
+            echo "❌ 检测到 EXTRA_COMPONENT_DIRS"
+            exit 1
+          fi
+
           rm -f sdkconfig
           rm -rf build
 
@@ -633,9 +701,10 @@ jobs:
 
           echo "✅ ESP-IDF v5.3 编译通过"
 
-  # ═════════════════════════════════════════════════════
+
+  # =====================================================
   # Job 4 - GitHub Release
-  # ═════════════════════════════════════════════════════
+  # =====================================================
   release:
     name: 🚀 发布 Release
     runs-on: ubuntu-22.04
@@ -696,6 +765,9 @@ jobs:
             echo "✅ $f"
           done
 
+      # -------------------------------------------------
+      # Release Notes
+      # -------------------------------------------------
       - name: 生成 Release Notes
         shell: bash
         run: |
@@ -768,7 +840,7 @@ jobs:
       - name: 创建 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: ESP32-C6-v${{ github.ref_name }}
+          name: ESP32-C6-${{ github.ref_name }}
           body_path: release_notes.md
           files: |
             release_assets/*.tar.gz
