@@ -296,6 +296,17 @@ jobs:
           python --version
           git --version
           cmake --version
+      # -------------------------------------------------
+      # ������ ������ ������ ������ ������ ��� ���� ���� ���� ���� ���� � ���� ���� ���� ���� ���� � �� �� �� �� �� 添加 ESP-TLS 依���������������赖
+      # -------------------------------------------------
+      - name: ������ ������ ������ ������ ������ ��� ���� ���� ���� ���� ���� � ���� ���� ���� ���� ���� � �� �� �� �� �� 添加 ESP-TLS 依���������������赖
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$IDF_PATH/export.sh"
+          echo "Adding esp_tls dependency..."
+          idf.py add-dependency esp_tls 2>&1 | tee add_dep.log
+          echo "Dependency addition finished."
 
       # -------------------------------------------------
       # 设置芯片目标
