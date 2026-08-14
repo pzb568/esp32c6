@@ -278,21 +278,46 @@ jobs:
 
       # ────────────────────────────────────────────────
       # 设置芯片目标
-      # ────────────────────────────────────────────────
-      - name: 配置目标芯片
-        shell: bash
-        run: |
-          set -euo pipefail
+      # ──────────────────────────────────- name: 配置目标芯片
+  shell: bash
+  run: |
+    set -euo pipefail
 
-          . "$IDF_PATH/export.sh"
+    . "$IDF_PATH/export.sh"
 
-          rm -f sdkconfig
-          rm -rf build
+    echo "════════ Git 工作区检查 ════════"
+    pwd
 
-          idf.py set-target "$TARGET"
+    echo "════════ Git HEAD ════════"
+    git rev-parse HEAD
+    git branch -av
 
-          echo "✅ 已设置目标芯片: $TARGET"
+    echo "════════ components ════════"
+    ls -lah components/
 
+    echo "════════ components/audio ════════"
+    if [[ -d components/audio ]]; then
+      echo "✅ components/audio 存在"
+      ls -lah components/audio/
+    else
+      echo "❌ components/audio 不存在"
+      exit 1
+    fi
+
+    echo "════════ Git tracked audio ════════"
+    git ls-files components/audio
+
+    echo "════════ 根 CMakeLists.txt ════════"
+    sed -n '1,80p' CMakeLists.txt
+
+    echo "════════ 清理旧构建 ════════"
+    rm -f sdkconfig
+    rm -rf build
+
+    echo "════════ 设置目标芯片 ════════"
+    idf.py set-target "$TARGET"
+
+    echo "✅ 已设置目标芯片: $TARGET"
       # ────────────────────────────────────────────────
       # 确定固件版本
       # ────────────────────────────────────────────────
