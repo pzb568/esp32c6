@@ -296,19 +296,58 @@ jobs:
           python --version
           git --version
           cmake --version
+
       # -------------------------------------------------
-      # ������ ������ ������ ������ ������ ��� ���� ���� ���� ���� ���� � ���� ���� ���� ���� ���� � �� �� �� �� �� 添加 ESP-TLS 依���������������赖
       # -------------------------------------------------
-      - name: ������ ������ ������ ������ ������ ��� ���� ���� ���� ���� ���� � ���� ���� ���� ���� ���� � �� �� �� �� �� 添加 ESP-TLS 依���������������赖
+      # ������ ���� ���� � ���� �� �� 添加 ESP-TLS 依���������������赖
+      # -------------------------------------------------
+      - name: ��� � � 添加 ESP-TLS 依�赖
         shell: bash
         run: |
           set -euo pipefail
-          . "$IDF_PATH/export.sh"
-          echo "Adding esp_tls dependency..."
-          idf.py add-dependency esp_tls 2>&1 | tee add_dep.log
-          echo "Dependency addition finished."
 
-      # -------------------------------------------------
+          echo "���═���═���═���═���═���═���═���═ ESP-TLS 依�赖�检查与安装 ���� �� �� ═���═���═���═��═���═���═���═"
+
+          # 导出 ESP-IDF 环境
+          . "$IDF_PATH/export.sh"
+
+          # � 首先�检查 esp_tls 组件是否已存在
+          echo "�检查 esp_tls 组件是否存在于 IDF � 路径中..."
+          if [ -d "$IDF_PATH/components/esp_tls" ]; then
+            echo "��✅ esp_tls 组件已存在于: $IDF_PATH/components/esp_tls"
+          else
+            echo "��⚠��️ esp_tls 组件未在 IDF � 路径中�找到，�尝试通过组件管理器�添加..."
+
+            # �尝试�添加 esp_tls 依�赖
+            if idf.py add-dependency esp_tls; then
+              echo "��✅ 成功通过组件管理器�添加 esp_tls 依�赖"
+
+              # � 再次验证
+              if [ -d "$IDF_PATH/components/esp_tls" ]; then
+                echo "��✅ 确认 esp_tls 组件现在存在于: $IDF_PATH/components/esp_tls"
+              else
+                echo "��❌ � 警告：�添加后仍未�找到 esp_tls 组件"
+                # 不退出，继续�尝试构建，也许它会以其他方式被�找到
+              fi
+            else
+              echo "��❌ 通过组件管理器�添加 esp_tls 依�赖失败"
+              echo "这可能表明："
+              echo "  1. 网�络问题导致无法从组件�仓库下载"
+              echo "  2. 组件名称可能已更改"
+              echo "  3. 此 ESP-IDF 版本可能不需要显式�添加"
+              echo "继续�尝试构建..."
+              # 不立即失败，让构建过程�尝试自行解决
+            fi
+          fi
+
+          # 显示所有以 esp_t � 开头的组件以帮助�诊断
+          echo ""
+          echo "列出所有以 esp_t � 开头的组件（用于�诊断）："
+          ls -d "$IDF_PATH/components"/esp_t* 2>/dev/null | xargs -I {} basename {} || echo "未�找到以 esp_t � 开头的组件"
+
+          echo ""
+          echo "���═���═���═���═���═���═���═���═ ESP-TLS 依�赖�检查完成 ���� �� �� ═���═��═���═���═���═���═���═"
+
       # 设置芯片目标
       # -------------------------------------------------
       - name: 配置目标芯片
