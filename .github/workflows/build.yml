@@ -298,30 +298,6 @@ jobs:
           cmake --version
 
       # -------------------------------------------------
-      # ��� � � 检查 ESP-TLS 组件
-      # -------------------------------------------------
-      - name: ��� � � 检查 ESP-TLS 组件
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          . "$IDF_PATH/export.sh"
-
-          echo "IDF_PATH: $IDF_PATH"
-          echo "Looking for esp_tls in $IDF_PATH/components/"
-          if [ -d "$IDF_PATH/components/esp_tls" ]; then
-            echo "������✅ esp_tls found"
-          else
-            echo "������❌ esp_tls NOT found"
-            echo "Listing components with esp_t in name:"
-            ls -d "$IDF_PATH/components/esp_t*" 2>/dev/null || echo "none"
-            # Maybe list all components
-            echo "All components:"
-            ls "$IDF_PATH/components/" | head -20
-          fi
-
-
-      # -------------------------------------------------
       # 设置芯片目标
       # -------------------------------------------------
       - name: 配置目标芯片
