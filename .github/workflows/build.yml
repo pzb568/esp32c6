@@ -112,7 +112,7 @@ jobs:
 
           echo "════════ 自定义组件检查 ════════"
 
-        required_components=(
+         required_components=(
             "components/ir_learn/CMakeLists.txt"
             "components/audio_player/CMakeLists.txt"
             "components/mqtt_mgr/CMakeLists.txt"
