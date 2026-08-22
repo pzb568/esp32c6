@@ -50,7 +50,7 @@ jobs:
     steps:
 
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: recursive
@@ -112,14 +112,15 @@ jobs:
 
           echo "════════ 自定义组件检查 ════════"
 
-          required_components=(
-            "components/ir_control/CMakeLists.txt"
-            "components/audio/CMakeLists.txt"
-            "components/mqtt_client/CMakeLists.txt"
-            "components/ai_engine/CMakeLists.txt"
-            "components/web_server/CMakeLists.txt"
-          )
-
+        required_components=(
+            "components/ir_learn/CMakeLists.txt"
+            "components/audio_player/CMakeLists.txt"
+            "components/mqtt_mgr/CMakeLists.txt"
+            "components/nvidia_ai/CMakeLists.txt"
+            "components/web_console/CMakeLists.txt"
+            "components/tts_engine/CMakeLists.txt"
+            "components/wifi_mgr/CMakeLists.txt"
+)
           missing=0
 
           for f in "${required_components[@]}"; do
@@ -229,7 +230,7 @@ jobs:
       # -------------------------------------------------
       - name: 上传检查报告
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: cppcheck-report
           path: cppcheck_report.txt
@@ -253,7 +254,7 @@ jobs:
     steps:
 
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
           fetch-depth: 0
@@ -266,7 +267,7 @@ jobs:
       # 缓存 ESP-IDF 工具链
       # -------------------------------------------------
       - name: 缓存 IDF 工具链
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /root/.espressif
           key: idf-tools-${{ env.IDF_VERSION }}-${{ runner.os }}-${{ runner.arch }}
@@ -568,7 +569,7 @@ jobs:
       # 上传固件 Artifact
       # -------------------------------------------------
       - name: 上传固件 Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: firmware-${{ env.PACKAGE_NAME }}
           path: |
@@ -584,7 +585,7 @@ jobs:
       # -------------------------------------------------
       - name: 上传失败日志
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: failed-build-log
           path: |
@@ -654,7 +655,7 @@ jobs:
     steps:
 
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
           fetch-depth: 0
@@ -678,10 +679,10 @@ jobs:
           echo "components:"
           ls -lah components/
 
-          if [[ ! -d components/audio ]]; then
-            echo "❌ components/audio 不存在"
-            exit 1
-          fi
+        if [[ ! -d components/audio_player ]]; then
+  echo "❌ components/audio_player 不存在"
+  exit 1
+fi
 
           if grep -R \
             --exclude-dir=.git \
@@ -720,7 +721,7 @@ jobs:
     steps:
 
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
