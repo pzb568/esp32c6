@@ -778,9 +778,8 @@ esp_err_t ir_learn_load_all(void)
         /* 这里使用迭代器方式不现实 — 改用固定格式遍历 */
 
         /* 由于NVS不支持按前缀迭代，此处用预设列表重建索引:
-           但实际从NVS读取需要知道key。保存时用"dev_act"格式。
-           加载时我们按已知索引重建。更好的方式:存为blob。*/
-    }
+                   实际从NVS读取需要知道key。保存时用"dev_act"格式。
+                   加载时我们按已知索引重建。更好的方式:存为blob。*/
 
     /* 改用 blob 方式加载 */
     size_t blob_size = LEARNED_MAX * sizeof(ir_learned_t);
