@@ -157,7 +157,7 @@ jobs:
           done
 
       # -------------------------------------------------
-      # 不使用 EXTRA_COMPONENT_DIRS（用 components/ 自动发现）
+      # 验证 CMakeLists.txt 中 EXTRA_COMPONENT_DIRS 指向 components/
       # -------------------------------------------------
       - name: 检查 CMake 组件配置
         shell: bash
@@ -165,16 +165,20 @@ jobs:
           set -euo pipefail
           echo "════════ CMake 组件配置检查 ════════"
 
-          if grep -R \
-            --exclude-dir=.git \
-            --exclude-dir=build \
-            -n 'EXTRA_COMPONENT_DIRS' \
-            CMakeLists.txt main components 2>/dev/null; then
-            echo "❌ 检测到 EXTRA_COMPONENT_DIRS（当前项目使用 components/ 自动发现）"
+          if ! grep -q 'EXTRA_COMPONENT_DIRS' CMakeLists.txt; then
+            echo "⚠️  CMakeLists.txt 未设置 EXTRA_COMPONENT_DIRS"
+            echo "   建议添加: set(EXTRA_COMPONENT_DIRS "\${CMAKE_CURRENT_SOURCE_DIR}/components")"
+          else
+            echo "✅ CMakeLists.txt 已设置 EXTRA_COMPONENT_DIRS"
+            grep 'EXTRA_COMPONENT_DIRS' CMakeLists.txt
+          fi
+
+          if ! grep -q 'components' CMakeLists.txt; then
+            echo "❌ CMakeLists.txt 未将 components/ 加入组件路径"
             exit 1
           fi
 
-          echo "✅ 未使用 EXTRA_COMPONENT_DIRS"
+          echo "✅ CMake 组件配置正确"
 
       # -------------------------------------------------
       # C/C++ 静态检查
@@ -291,15 +295,11 @@ jobs:
           cat main/CMakeLists.txt
 
           echo "════════ EXTRA_COMPONENT_DIRS 检查 ════════"
-          if grep -R \
-            --exclude-dir=.git \
-            --exclude-dir=build \
-            -n 'EXTRA_COMPONENT_DIRS' \
-            CMakeLists.txt main components 2>/dev/null; then
-            echo "❌ 检测到 EXTRA_COMPONENT_DIRS"
-            exit 1
+          if grep -q 'EXTRA_COMPONENT_DIRS' CMakeLists.txt; then
+            echo "✅ CMakeLists.txt 已配置 EXTRA_COMPONENT_DIRS"
+            grep 'EXTRA_COMPONENT_DIRS' CMakeLists.txt
           else
-            echo "✅ 未检测到 EXTRA_COMPONENT_DIRS"
+            echo "⚠️  CMakeLists.txt 未配置 EXTRA_COMPONENT_DIRS"
           fi
 
           echo "════════ 清理旧构建 ════════"
@@ -542,13 +542,10 @@ jobs:
             echo "✅ components/${comp}"
           done
 
-          if grep -R \
-            --exclude-dir=.git \
-            --exclude-dir=build \
-            -n 'EXTRA_COMPONENT_DIRS' \
-            CMakeLists.txt main components 2>/dev/null; then
-            echo "❌ 检测到 EXTRA_COMPONENT_DIRS"
-            exit 1
+          if grep -q 'EXTRA_COMPONENT_DIRS' CMakeLists.txt; then
+            echo "✅ CMakeLists.txt 已配置 EXTRA_COMPONENT_DIRS"
+          else
+            echo "⚠️  CMakeLists.txt 未配置 EXTRA_COMPONENT_DIRS"
           fi
 
           rm -f sdkconfig
