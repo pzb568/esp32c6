@@ -11,6 +11,7 @@
 #include "mqtt_client.h"
 #include "mqtt_client_mgr.h"
 #include "config.h"
+#include "esp_err.h"
 
 static const char *TAG = "MQTT";
 static esp_mqtt_client_handle_t client = NULL;

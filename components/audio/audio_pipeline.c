@@ -17,6 +17,7 @@
 #include "esp_timer.h"
 #include "esp_http_client.h"
 #include "audio_pipeline.h"
+#include "esp_err.h"
 
 static const char *TAG = "AUDIO";
 

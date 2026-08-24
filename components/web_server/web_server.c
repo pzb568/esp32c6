@@ -16,6 +16,7 @@
 #include "esp_http_server.h"
 #include "esp_spiffs.h"
 #include "nvs_flash.h"
+#include "esp_err.h"
 
 #include "web_server.h"
 #include "config.h"
