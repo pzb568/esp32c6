@@ -48,14 +48,11 @@ jobs:
     steps:
 
       - name: 检出代码
-        uses: actions/checkout@v4        # FIX#1: v5 不存在，改回 v4
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
 
-      # -------------------------------------------------
-      # 检查 Git 状态
-      # -------------------------------------------------
       - name: 检查 Git 状态
         shell: bash
         run: |
@@ -98,9 +95,12 @@ jobs:
           fi
 
       # -------------------------------------------------
-      # 检查自定义组件
-      # FIX#2: 去掉 required_components=( 前的多余缩进空格（bash syntax error）
-      # FIX#3: 改为实际组件目录名
+      # 检查自定义组件（与本地实际目录完全一致）
+      #   components/ir_control
+      #   components/audio
+      #   components/mqtt_client
+      #   components/ai_engine
+      #   components/web_server
       # -------------------------------------------------
       - name: 检查自定义组件
         shell: bash
@@ -109,13 +109,11 @@ jobs:
           echo "════════ 自定义组件检查 ════════"
 
           required_components=(
-            "components/ir_learn/CMakeLists.txt"
-            "components/audio_player/CMakeLists.txt"
-            "components/mqtt_mgr/CMakeLists.txt"
-            "components/nvidia_ai/CMakeLists.txt"
-            "components/web_console/CMakeLists.txt"
-            "components/tts_engine/CMakeLists.txt"
-            "components/wifi_mgr/CMakeLists.txt"
+            "components/ir_control/CMakeLists.txt"
+            "components/audio/CMakeLists.txt"
+            "components/mqtt_client/CMakeLists.txt"
+            "components/ai_engine/CMakeLists.txt"
+            "components/web_server/CMakeLists.txt"
           )
 
           missing=0
@@ -134,8 +132,7 @@ jobs:
           fi
 
       # -------------------------------------------------
-      # 检查组件依赖声明
-      # FIX#3: 改为实际组件名，删除不存在的旧名检查
+      # 检查 main/CMakeLists.txt 中的组件依赖声明
       # -------------------------------------------------
       - name: 检查组件依赖声明
         shell: bash
@@ -144,17 +141,15 @@ jobs:
           echo "════════ 组件依赖检查 ════════"
 
           required_components=(
-            "ir_learn"
-            "audio_player"
-            "mqtt_mgr"
-            "nvidia_ai"
-            "web_console"
-            "tts_engine"
-            "wifi_mgr"
+            "ir_control"
+            "audio"
+            "mqtt_client"
+            "ai_engine"
+            "web_server"
           )
 
           for component in "${required_components[@]}"; do
-            if grep -qE "${component}" main/CMakeLists.txt; then
+            if grep -qE "^\s+${component}\s*$" main/CMakeLists.txt; then
               echo "✅ main → ${component}"
             else
               echo "⚠️  main/CMakeLists.txt 未声明: ${component}"
@@ -162,7 +157,7 @@ jobs:
           done
 
       # -------------------------------------------------
-      # 检查 EXTRA_COMPONENT_DIRS（不使用则报错）
+      # 不使用 EXTRA_COMPONENT_DIRS（用 components/ 自动发现）
       # -------------------------------------------------
       - name: 检查 CMake 组件配置
         shell: bash
@@ -182,7 +177,7 @@ jobs:
           echo "✅ 未使用 EXTRA_COMPONENT_DIRS"
 
       # -------------------------------------------------
-      # 安装并运行 cppcheck
+      # C/C++ 静态检查
       # -------------------------------------------------
       - name: 安装 cppcheck
         run: |
@@ -206,7 +201,7 @@ jobs:
 
       - name: 上传检查报告
         if: always()
-        uses: actions/upload-artifact@v4    # FIX#1: v5→v4
+        uses: actions/upload-artifact@v4
         with:
           name: cppcheck-report
           path: cppcheck_report.txt
@@ -229,7 +224,7 @@ jobs:
     steps:
 
       - name: 检出代码
-        uses: actions/checkout@v4        # FIX#1
+        uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
@@ -239,16 +234,13 @@ jobs:
           git config --global --add safe.directory '*'
 
       - name: 缓存 IDF 工具链
-        uses: actions/cache@v4           # FIX#1
+        uses: actions/cache@v4
         with:
           path: /root/.espressif
           key: idf-tools-${{ env.IDF_VERSION }}-${{ runner.os }}-${{ runner.arch }}
           restore-keys: |
             idf-tools-${{ env.IDF_VERSION }}-${{ runner.os }}-
 
-      # -------------------------------------------------
-      # 打印构建环境
-      # -------------------------------------------------
       - name: 打印构建环境
         shell: bash
         run: |
@@ -268,8 +260,7 @@ jobs:
           cmake --version
 
       # -------------------------------------------------
-      # 配置目标芯片
-      # FIX#4: components/audio → components/audio_player
+      # 配置目标芯片（检查实际组件目录）
       # -------------------------------------------------
       - name: 配置目标芯片
         shell: bash
@@ -283,14 +274,15 @@ jobs:
           echo "════════ components 目录 ════════"
           ls -lah components/
 
-          # FIX#4: 检查实际目录名 audio_player
-          if [[ -d components/audio_player ]]; then
-            echo "✅ components/audio_player 存在"
-            ls -lah components/audio_player/
-          else
-            echo "❌ components/audio_player 不存在"
-            exit 1
-          fi
+          echo "════════ 组件目录验证 ════════"
+          for comp in ir_control audio mqtt_client ai_engine web_server; do
+            if [[ -d "components/${comp}" ]]; then
+              echo "✅ components/${comp}"
+            else
+              echo "❌ components/${comp} 不存在"
+              exit 1
+            fi
+          done
 
           echo "════════ 根 CMakeLists.txt ════════"
           cat CMakeLists.txt
@@ -341,7 +333,7 @@ jobs:
           echo "版本: v${VERSION}"
 
       # -------------------------------------------------
-      # 生成版本头文件（用 printf 避免 heredoc 缩进问题）
+      # 生成版本头文件（printf 避免 heredoc 缩进问题）
       # -------------------------------------------------
       - name: 生成版本头文件
         shell: bash
@@ -351,12 +343,12 @@ jobs:
           BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
           GIT_HASH=$(git rev-parse --short HEAD)
 
-          printf '#pragma once\n'                                   >  main/version.h
-          printf '#define FW_VERSION     "%s"\n' "$FW_VERSION"      >> main/version.h
-          printf '#define FW_GIT_HASH    "%s"\n' "$GIT_HASH"        >> main/version.h
-          printf '#define FW_BUILD_TIME  "%s"\n' "$BUILD_TIME"      >> main/version.h
-          printf '#define FW_IDF_VERSION "%s"\n' "$IDF_VERSION"     >> main/version.h
-          printf '#define FW_TARGET      "%s"\n' "$TARGET"          >> main/version.h
+          printf '#pragma once\n'                                     >  main/version.h
+          printf '#define FW_VERSION     "%s"\n' "$FW_VERSION"        >> main/version.h
+          printf '#define FW_GIT_HASH    "%s"\n' "$GIT_HASH"          >> main/version.h
+          printf '#define FW_BUILD_TIME  "%s"\n' "$BUILD_TIME"        >> main/version.h
+          printf '#define FW_IDF_VERSION "%s"\n' "$IDF_VERSION"       >> main/version.h
+          printf '#define FW_TARGET      "%s"\n' "$TARGET"            >> main/version.h
 
           echo "════════ version.h ════════"
           cat main/version.h
@@ -392,9 +384,7 @@ jobs:
           fi
 
           FW_SIZE=$(stat -c%s "$APP_BIN")
-          echo "════════ 固件信息 ════════"
           echo "版本: v${FW_VERSION}"
-          echo "路径: $APP_BIN"
           echo "大小: $((FW_SIZE / 1024)) KB ($FW_SIZE bytes)"
 
       # -------------------------------------------------
@@ -417,15 +407,13 @@ jobs:
           APP_BIN="build/${PROJECT_NAME}.bin"
           [[ -f "$APP_BIN" ]] || { echo "❌ 找不到: $APP_BIN"; exit 1; }
 
-          cp "$APP_BIN"                         firmware_package/
-          cp build/bootloader/bootloader.bin     firmware_package/
-          cp build/partition-table.bin           firmware_package/
+          cp "$APP_BIN"                          firmware_package/
+          cp build/bootloader/bootloader.bin      firmware_package/
+          cp build/partition-table.bin            firmware_package/
           [[ -f build/storage.bin ]] && cp build/storage.bin firmware_package/ || true
 
-          # SHA256
           (cd firmware_package && sha256sum *.bin > SHA256SUMS.txt)
 
-          # 烧录说明（用 printf 避免 heredoc 缩进问题）
           {
             printf 'ESP32-C6 智能家庭终端固件烧录说明\n\n'
             printf '固件版本: v%s\n' "$FW_VERSION"
@@ -448,7 +436,6 @@ jobs:
 
           echo "PACKAGE_NAME=${PACKAGE_NAME}" >> "$GITHUB_ENV"
 
-          echo "════════ 固件包 ════════"
           ls -lh "${PACKAGE_NAME}.tar.gz" "${PACKAGE_NAME}.zip"
           ls -lh firmware_package/
 
@@ -456,7 +443,7 @@ jobs:
       # 上传固件 Artifact
       # -------------------------------------------------
       - name: 上传固件 Artifact
-        uses: actions/upload-artifact@v4    # FIX#1
+        uses: actions/upload-artifact@v4
         with:
           name: firmware-${{ env.PACKAGE_NAME }}
           path: |
@@ -469,7 +456,7 @@ jobs:
 
       - name: 上传失败日志
         if: failure()
-        uses: actions/upload-artifact@v4    # FIX#1
+        uses: actions/upload-artifact@v4
         with:
           name: failed-build-log
           path: |
@@ -480,7 +467,6 @@ jobs:
 
       # -------------------------------------------------
       # 构建摘要
-      # FIX#6: DeepSeek → NVIDIA NIM
       # -------------------------------------------------
       - name: 生成构建摘要
         if: always()
@@ -503,21 +489,13 @@ jobs:
             echo "| 固件大小 | $((FW_SIZE / 1024)) KB |"
             echo "| 构建时间 | $(date -u '+%Y-%m-%d %H:%M UTC') |"
             echo ""
-            echo "### 硬件配置"
-            echo ""
-            echo "- 微雪 ESP32-C6-DEV-KIT-N16"
-            echo "- INMP441 I2S 麦克风 (GPIO 16/17/18)"
-            echo "- MAX98357 I2S 功放 (GPIO 6/7/15)"
-            echo "- NEC 红外发射/接收 (GPIO 2/3)"
-            echo "- NVIDIA NIM — meta/llama-3.1-70b-instruct"
-            echo "- HTTP 网络电台流媒体"
-            echo "- WiFi + MQTT (Mosquitto)"
+            echo "### 组件"
+            echo "- ir_control / audio / mqtt_client / ai_engine / web_server"
           } >> "$GITHUB_STEP_SUMMARY"
 
 
   # =====================================================
   # Job 3 - ESP-IDF v5.3 兼容性测试
-  # FIX#5: 把游离在 run: 块外的 if 语句移回 run: 块内
   # =====================================================
   compat-test:
     name: 🧪 ESP-IDF v5.3 兼容性测试
@@ -536,7 +514,7 @@ jobs:
     steps:
 
       - name: 检出代码
-        uses: actions/checkout@v4        # FIX#1
+        uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
@@ -555,13 +533,14 @@ jobs:
           git rev-parse HEAD
           ls -lah components/
 
-          # FIX#5: if 块必须在 run: | 内，缩进正确
-          # FIX#4: 检查实际目录名 audio_player
-          if [[ ! -d components/audio_player ]]; then
-            echo "❌ components/audio_player 不存在"
-            exit 1
-          fi
-          echo "✅ components/audio_player 存在"
+          echo "════════ 组件目录验证 ════════"
+          for comp in ir_control audio mqtt_client ai_engine web_server; do
+            if [[ ! -d "components/${comp}" ]]; then
+              echo "❌ components/${comp} 不存在"
+              exit 1
+            fi
+            echo "✅ components/${comp}"
+          done
 
           if grep -R \
             --exclude-dir=.git \
@@ -598,12 +577,12 @@ jobs:
     steps:
 
       - name: 检出代码
-        uses: actions/checkout@v4        # FIX#1
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: 下载 Artifact
-        uses: actions/download-artifact@v4    # FIX#8: 与其他保持一致用 v4
+        uses: actions/download-artifact@v4
         with:
           pattern: firmware-*
           merge-multiple: true
@@ -640,10 +619,6 @@ jobs:
             echo "✅ $f"
           done
 
-      # -------------------------------------------------
-      # Release Notes
-      # FIX#7: DeepSeek → NVIDIA NIM
-      # -------------------------------------------------
       - name: 生成 Release Notes
         shell: bash
         run: |
@@ -660,17 +635,14 @@ jobs:
 
           SHA256_CONTENT=$(cat "release_assets/firmware_package/SHA256SUMS.txt")
 
-          # 用 printf 生成 release_notes.md，避免 heredoc 缩进污染
           {
             printf '# 🏠 ESP32-C6 智能家庭终端 v%s\n\n' "$VERSION"
             printf '## 功能\n\n'
             printf '- INMP441 I2S 麦克风 + VAD 语音检测\n'
-            printf '- MAX98357 I2S 功放 + 语音提示音\n'
-            printf '- NVIDIA NIM — meta/llama-3.1-70b-instruct\n'
-            printf '- HTTP 网络电台流媒体播放\n'
+            printf '- MAX98357 I2S 功放 + TTS 语音提示\n'
             printf '- NEC 红外控制：空调/电视/机顶盒/风扇/灯光\n'
-            printf '- Web 界面触发红外学习，NVS 持久化\n'
-            printf '- WiFi + MQTT 智能家居联动\n'
+            printf '- HTTP 网络电台流媒体播放\n'
+            printf '- MQTT 智能家居联动\n'
             printf '- Web 配置控制台\n\n'
             printf '## 硬件接线\n\n'
             printf '| 模块 | ESP32-C6 引脚 |\n'
