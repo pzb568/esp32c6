@@ -363,7 +363,7 @@ jobs:
           . "$IDF_PATH/export.sh"
           NPROC=$(nproc)
           echo "使用 $NPROC 核心编译"
-          idf.py build -j "$NPROC" 2>&1 | tee build.log
+          idf.py build -- -j "$NPROC" 2>&1 | tee build.log
 
       # -------------------------------------------------
       # 检查固件大小

@@ -4,6 +4,7 @@ idf_component_register(
     INCLUDE_DIRS
         "."
     REQUIRES
+        config
         nvs_flash
         esp_wifi
         esp_http_server

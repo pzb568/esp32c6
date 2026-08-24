@@ -5,6 +5,7 @@ idf_component_register(
     INCLUDE_DIRS
         "."
     REQUIRES
+        config
         esp_wifi
         nvs_flash
         mqtt

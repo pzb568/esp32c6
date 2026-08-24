@@ -4,6 +4,7 @@ idf_component_register(
     INCLUDE_DIRS
         "."
     REQUIRES
+        config
         esp_http_server
         spiffs
         esp_wifi

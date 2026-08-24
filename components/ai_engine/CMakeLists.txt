@@ -4,6 +4,7 @@ idf_component_register(
     INCLUDE_DIRS
         "."
     REQUIRES
+        config
         nvs_flash
         esp_http_client
         json

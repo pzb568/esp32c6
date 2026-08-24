@@ -4,6 +4,7 @@ idf_component_register(
     INCLUDE_DIRS
         "."
     REQUIRES
+        config
         driver
         nvs_flash
     PRIV_REQUIRES

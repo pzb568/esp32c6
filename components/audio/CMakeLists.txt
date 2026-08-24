@@ -4,6 +4,7 @@ idf_component_register(
     INCLUDE_DIRS
         "."
     REQUIRES
+        config
         driver
         esp_http_client
     PRIV_REQUIRES
