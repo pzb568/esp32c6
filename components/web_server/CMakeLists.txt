@@ -5,7 +5,7 @@ idf_component_register(
         "."
     REQUIRES
         esp_http_server
-        esp_spiffs
+        spiffs
         esp_wifi
         nvs_flash
         driver
