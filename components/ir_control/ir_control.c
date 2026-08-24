@@ -773,15 +773,7 @@ esp_err_t ir_learn_load_all(void)
         return err;
     }
 
-    int32_t count = 0;
-    err = nvs_get_i32(handle, "count", &count);
-    if (err != ESP_OK || count <= 0) {
-        nvs_close(handle);
-        return ESP_OK;
-    }
-
-    learned_count = 0;
-/* 尝试读取: 遍历所有可能的键 (dev 0-5, act 1-50) */
+    /* 尝试读取: 遍历所有可能的键 (dev 0-5, act 1-50) */
         /* 简化版: 直接尝试读取 key 格式的 NVS 项 */
         /* 这里使用迭代器方式不现实 — 改用固定格式遍历 */
 

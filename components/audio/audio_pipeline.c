@@ -16,8 +16,8 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "esp_http_client.h"
-#include "audio_pipeline.h"
 #include "esp_err.h"
+#include "audio_pipeline.h"
 
 static const char *TAG = "AUDIO";
 
@@ -78,7 +78,7 @@ esp_err_t audio_pipeline_init(void)
     ESP_RETURN_ON_ERROR(i2s_channel_init_std_mode(rx_chan, &rx_std_cfg), TAG, "初始化RX标准模式失败");
 
     /* ── I2S1 TX: MAX98357 功放 ── */
-    i2s_chan_config_t tx_chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_1, I2S_ROLE_MASTER);
+    i2s_chan_config_t tx_chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     ESP_RETURN_ON_ERROR(i2s_new_channel(&tx_chan_cfg, &tx_chan, NULL), TAG, "创建TX通道失败");
 
     i2s_std_config_t tx_std_cfg = {
