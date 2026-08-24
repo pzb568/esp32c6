@@ -460,6 +460,7 @@ static esp_err_t ws_handler(httpd_req_t *req)
 {
     if (req->method == HTTP_GET) {
         ESP_LOGI(TAG, "WebSocket 握手请求 fd=%d", httpd_req_to_sockfd(req));
+        ws_add_client(httpd_req_to_sockfd(req));
         return ESP_OK;
     }
 
