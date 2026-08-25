@@ -7,6 +7,7 @@ idf_component_register(
         config
         driver
         esp_http_client
+        esp_system
     PRIV_REQUIRES
         esp_timer
 )

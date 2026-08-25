@@ -7,6 +7,7 @@ idf_component_register(
         config
         driver
         nvs_flash
+        esp_system
     PRIV_REQUIRES
         esp_timer
 )

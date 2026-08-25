@@ -9,4 +9,7 @@ idf_component_register(
         esp_http_client
         json
         ir_control
+        esp_system
+    PRIV_REQUIRES
+        esp_timer
 )
