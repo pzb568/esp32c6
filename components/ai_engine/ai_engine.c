@@ -16,6 +16,7 @@
 #include "esp_err.h"
 #include "esp_http_client.h"
 #include "cJSON.h"
+#include "nvs.h"
 
 #include "ai_engine.h"
 #include "ir_control.h"

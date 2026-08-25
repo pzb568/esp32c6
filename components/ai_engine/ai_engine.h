@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "config.h"
+#include "ir_control.h"
 
 /* ── AI 处理结果 ─────────────────────────────────── */
 #define AI_MAX_CMDS     8
