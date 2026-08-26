@@ -19,3 +19,7 @@ idf_component_register(
         ai_engine
         web_server
 )
+
+# ESP32-C6 RISC-V maps fixed-width int32_t/uint32_t to long/unsigned long.
+# Keep the existing JSON formatting source compatible with ESP-IDF 5.3.
+target_compile_options(${COMPONENT_LIB} PRIVATE "-Wno-error=format")
