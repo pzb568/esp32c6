@@ -1,6 +1,7 @@
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>
+#include "esp_check.h"
 /**
  * ================================================================
  *  config.h — 全局配置中心
@@ -43,7 +44,7 @@
 #define GPIO_MIC_WS          17
 #define GPIO_MIC_DATA        18
 
-/* MAX98357 功放 I2S (I2S_NUM_1 TX) */
+/* MAX98357 功放 I2S (ESP32-C6 I2S_NUM_0 TX simplex) */
 #define GPIO_SPK_BCLK        6
 #define GPIO_SPK_LRC         7
 #define GPIO_SPK_DIN         15
