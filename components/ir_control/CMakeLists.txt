@@ -5,7 +5,7 @@ idf_component_register(
         "."
     REQUIRES
         config
-        driver
+        esp_driver_uart
         nvs_flash
         esp_system
     PRIV_REQUIRES
