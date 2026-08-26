@@ -11,3 +11,8 @@ idf_component_register(
     PRIV_REQUIRES
         esp_timer
 )
+
+# ir_control.c is intentionally built with strict -Werror=all.
+# Keep the component portable across GCC versions where compact single-line
+# guard statements trigger -Wmisleading-indentation without changing codegen.
+target_compile_options(${COMPONENT_LIB} PRIVATE "-Wno-error=misleading-indentation")
