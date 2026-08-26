@@ -25,7 +25,7 @@ CONFIG_FREERTOS_UNICORE=y
 # ── WiFi ─────────────────────────────────────────
 CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=4
 CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=8
-CONFIG_ESP32_WIFI_NVS_ENABLED=y
+CONFIG_ESP_WIFI_NVS_ENABLED=y
 
 # ── HTTPS / TLS ──────────────────────────────────
 CONFIG_ESP_TLS_USING_MBEDTLS=y
@@ -33,16 +33,13 @@ CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y
 CONFIG_ESP_HTTP_CLIENT_ENABLE_HTTPS=y
 
-# ── cJSON ────────────────────────────────────────
-CONFIG_JSON_ENABLE=y
-
 # ── MQTT ─────────────────────────────────────────
 CONFIG_MQTT_PROTOCOL_311=y
 CONFIG_MQTT_TRANSPORT_SSL=y
 CONFIG_MQTT_BUFFER_SIZE=4096
 CONFIG_MQTT_OUTBOX_EXPIRED_TIMEOUT_MS=30000
 
-# ── I2S (麦克风 + 功放) ──────────────────────────
+# ── I2S (麦克风 + 功放，共用 ESP32-C6 I2S0 的 simplex RX/TX) ──
 CONFIG_SOC_I2S_SUPPORTED=y
 
 # ── RMT (红外发射) ───────────────────────────────
@@ -57,7 +54,6 @@ CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 CONFIG_LOG_COLORS=y
 
 # ── 内存 ─────────────────────────────────────────
-CONFIG_ESP32C6_SPIRAM_SUPPORT=n
 CONFIG_HEAP_POISONING_DISABLED=y
 
 # ── SPIFFS (音频文件存储) ─────────────────────────
