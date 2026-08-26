@@ -11,11 +11,9 @@ on:
       - '**.md'
       - 'docs/**'
       - '.gitignore'
-
   pull_request:
     branches:
       - master
-
   workflow_dispatch:
     inputs:
       idf_version:
@@ -46,7 +44,6 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-
       - name: 检查 Git 状态
         shell: bash
         run: |
@@ -55,97 +52,49 @@ jobs:
           echo "当前分支: $(git branch --show-current)"
           echo "当前提交: $(git rev-parse --short HEAD)"
           git status --short
-
       - name: 检查必要文件
         shell: bash
         run: |
           set -euo pipefail
-          required_files=(
-            "CMakeLists.txt"
-            "main/CMakeLists.txt"
-            "main/main.c"
-            "sdkconfig.defaults"
-            "partitions.csv"
-          )
+          required_files=(CMakeLists.txt main/CMakeLists.txt main/main.c sdkconfig.defaults partitions.csv)
           missing=0
           for f in "${required_files[@]}"; do
-            if [[ ! -f "$f" ]]; then
-              echo "❌ 缺失: $f"
-              missing=$((missing + 1))
-            else
-              echo "✅ 存在: $f"
-            fi
+            if [[ ! -f "$f" ]]; then echo "❌ 缺失: $f"; missing=$((missing+1)); else echo "✅ 存在: $f"; fi
           done
           (( missing == 0 )) || exit 1
-
       - name: 检查自定义组件
         shell: bash
         run: |
           set -euo pipefail
-          required_components=(
-            "components/ir_control/CMakeLists.txt"
-            "components/audio/CMakeLists.txt"
-            "components/mqtt_client/CMakeLists.txt"
-            "components/ai_engine/CMakeLists.txt"
-            "components/web_server/CMakeLists.txt"
-          )
+          required_components=(components/ir_control/CMakeLists.txt components/audio/CMakeLists.txt components/mqtt_client/CMakeLists.txt components/ai_engine/CMakeLists.txt components/web_server/CMakeLists.txt)
           missing=0
           for f in "${required_components[@]}"; do
-            if [[ ! -f "$f" ]]; then
-              echo "❌ 缺失: $f"
-              missing=$((missing + 1))
-            else
-              echo "✅ 存在: $f"
-            fi
+            if [[ ! -f "$f" ]]; then echo "❌ 缺失: $f"; missing=$((missing+1)); else echo "✅ 存在: $f"; fi
           done
           (( missing == 0 )) || exit 1
-
       - name: 检查组件依赖声明
         shell: bash
         run: |
           set -euo pipefail
           for component in ir_control audio mqtt_client ai_engine web_server; do
-            if grep -qE "^\s+${component}\s*$" main/CMakeLists.txt; then
-              echo "✅ main → ${component}"
-            else
-              echo "⚠️ main/CMakeLists.txt 未声明: ${component}"
-            fi
+            if grep -qE "^\s+${component}\s*$" main/CMakeLists.txt; then echo "✅ main → ${component}"; else echo "⚠️ main/CMakeLists.txt 未声明: ${component}"; fi
           done
-
       - name: 检查 CMake 组件配置
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'EXTRA_COMPONENT_DIRS' CMakeLists.txt || {
-            echo "❌ CMakeLists.txt 未设置 EXTRA_COMPONENT_DIRS"
-            exit 1
-          }
-          grep -q 'components' CMakeLists.txt || {
-            echo "❌ CMakeLists.txt 未将 components/ 加入组件路径"
-            exit 1
-          }
+          grep -q 'EXTRA_COMPONENT_DIRS' CMakeLists.txt || { echo "❌ CMakeLists.txt 未设置 EXTRA_COMPONENT_DIRS"; exit 1; }
+          grep -q 'components' CMakeLists.txt || { echo "❌ CMakeLists.txt 未将 components/ 加入组件路径"; exit 1; }
           echo "✅ CMake 组件配置正确"
-
       - name: 安装 cppcheck
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y cppcheck
-
       - name: C/C++ 静态检查
         shell: bash
         run: |
           set -o pipefail
-          cppcheck \
-            --enable=warning,style,performance \
-            --inline-suppr \
-            --suppress=missingInclude \
-            --suppress=missingIncludeSystem \
-            --error-exitcode=0 \
-            -I main \
-            -I components \
-            main components \
-            2>&1 | tee cppcheck_report.txt
-
+          cppcheck --enable=warning,style,performance --inline-suppr --suppress=missingInclude --suppress=missingIncludeSystem --error-exitcode=0 -I main -I components main components 2>&1 | tee cppcheck_report.txt
       - name: 上传检查报告
         if: always()
         uses: actions/upload-artifact@v4
@@ -162,43 +111,37 @@ jobs:
     container:
       image: espressif/idf:${{ github.event.inputs.idf_version || 'release-v5.3' }}
       options: --user root
-
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
-
       - name: 修复 Git safe.directory
         run: git config --global --add safe.directory '*'
-
       - name: 缓存 IDF 工具链
         uses: actions/cache@v4
         with:
           path: /root/.espressif
           key: idf-tools-${{ env.IDF_VERSION }}-${{ runner.os }}-${{ runner.arch }}
-          restore-keys: |
-            idf-tools-${{ env.IDF_VERSION }}-${{ runner.os }}-
-
+          restore-keys: idf-tools-${{ env.IDF_VERSION }}-${{ runner.os }}-
       - name: 打印构建环境
         shell: bash
         run: |
           set -euo pipefail
           . "$IDF_PATH/export.sh"
           echo "════════════════════════════════════════"
-          echo "ESP-IDF:  $IDF_VERSION"
-          echo "TARGET:   $TARGET"
-          echo "Runner:   ${{ runner.os }}"
-          echo "Arch:     ${{ runner.arch }}"
-          echo "Branch:   ${{ github.ref_name }}"
-          echo "Commit:   ${{ github.sha }}"
+          echo "ESP-IDF: $IDF_VERSION"
+          echo "TARGET: $TARGET"
+          echo "Runner: ${{ runner.os }}"
+          echo "Arch: ${{ runner.arch }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
           echo "════════════════════════════════════════"
           idf.py --version
           python --version
           git --version
           cmake --version
-
       - name: 配置目标芯片
         shell: bash
         run: |
@@ -220,23 +163,18 @@ jobs:
           echo "════════ 设置目标芯片 ════════"
           idf.py set-target "$TARGET"
           echo "✅ Target: $TARGET"
-
       - name: 确定固件版本
         shell: bash
         run: |
           set -euo pipefail
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
-            [[ "$VERSION" =~ ^[0-9]+\.[0-9]+$ ]] || {
-              echo "❌ Tag 格式错误: ${GITHUB_REF_NAME}"
-              exit 1
-            }
+            [[ "$VERSION" =~ ^[0-9]+\.[0-9]+$ ]] || { echo "❌ Tag 格式错误: ${GITHUB_REF_NAME}"; exit 1; }
           else
             VERSION="${BASE_VERSION}-dev"
           fi
           echo "FW_VERSION=${VERSION}" >> "$GITHUB_ENV"
           echo "版本: v${VERSION}"
-
       - name: 生成版本头文件
         shell: bash
         run: |
@@ -250,7 +188,6 @@ jobs:
           printf '#define FW_IDF_VERSION "%s"\n' "$IDF_VERSION" >> main/version.h
           printf '#define FW_TARGET      "%s"\n' "$TARGET" >> main/version.h
           cat main/version.h
-
       - name: 编译固件
         shell: bash
         run: |
@@ -258,10 +195,8 @@ jobs:
           . "$IDF_PATH/export.sh"
           NPROC=$(nproc)
           echo "使用 $NPROC 核心编译"
-          # 正确的 idf.py 并行构建方式；不要把 -j 作为 Ninja 目标传入 idf.py。
           export IDF_PY_BUILD_JOBS="$NPROC"
           idf.py build 2>&1 | tee build.log
-
       - name: 检查固件大小
         shell: bash
         run: |
@@ -273,7 +208,6 @@ jobs:
           FW_SIZE=$(stat -c%s "$APP_BIN")
           echo "版本: v${FW_VERSION}"
           echo "大小: $((FW_SIZE / 1024)) KB ($FW_SIZE bytes)"
-
       - name: 打包固件
         shell: bash
         run: |
@@ -284,35 +218,53 @@ jobs:
           TIMESTAMP=$(date -u '+%Y%m%d_%H%M%S')
           PACKAGE_NAME="${PROJECT_NAME}_v${FW_VERSION}_${GIT_HASH}_${TIMESTAMP}"
           mkdir -p firmware_package
+
+          # ESP-IDF 5.3 的实际输出路径：partition-table.bin 位于 build/partition_table/
           APP_BIN="build/${PROJECT_NAME}.bin"
-          [[ -f "$APP_BIN" ]] || { echo "❌ 找不到: $APP_BIN"; exit 1; }
+          BOOT_BIN="build/bootloader/bootloader.bin"
+          PART_BIN="build/partition_table/partition-table.bin"
+          OTA_BIN="build/ota_data_initial.bin"
+
+          for f in "$APP_BIN" "$BOOT_BIN" "$PART_BIN" "$OTA_BIN"; do
+            [[ -f "$f" ]] || { echo "❌ 固件打包所需文件不存在: $f"; exit 1; }
+          done
+
           cp "$APP_BIN" firmware_package/
-          cp build/bootloader/bootloader.bin firmware_package/
-          cp build/partition-table.bin firmware_package/
-          [[ -f build/storage.bin ]] && cp build/storage.bin firmware_package/ || true
+          cp "$BOOT_BIN" firmware_package/
+          cp "$PART_BIN" firmware_package/
+          cp "$OTA_BIN" firmware_package/
+
+          # SPIFFS 镜像若由项目生成则一并打包；不存在时不影响主固件包。
+          if [[ -f build/storage.bin ]]; then cp build/storage.bin firmware_package/; fi
+          if [[ -f build/storage/storage.bin ]]; then cp build/storage/storage.bin firmware_package/; fi
+          if [[ -f build/spiffs.bin ]]; then cp build/spiffs.bin firmware_package/; fi
+
           (cd firmware_package && sha256sum *.bin > SHA256SUMS.txt)
+
           {
             printf 'ESP32-C6 智能家庭终端固件烧录说明\n\n'
             printf '固件版本: v%s\n' "$FW_VERSION"
             printf 'Git Commit: %s\n' "$GIT_HASH"
             printf 'ESP-IDF: %s\n' "$IDF_VERSION"
-            printf '芯片: ESP32-C6\n\n'
-            printf '烧录命令:\n\n'
-            printf 'esptool.py \\\n'
-            printf '  --chip esp32c6 \\\n'
-            printf '  --port /dev/ttyUSB0 \\\n'
-            printf '  --baud 460800 \\\n'
-            printf '  write_flash \\\n'
-            printf '  0x0     bootloader.bin \\\n'
+            printf '芯片: ESP32-C6\n'
+            printf 'Flash: 16MB\n\n'
+            printf '【推荐】完整烧录（清空 Flash 后）:\n\n'
+            printf 'esptool.py --chip esp32c6 --port /dev/ttyUSB0 --baud 460800 erase_flash\n'
+            printf 'esptool.py --chip esp32c6 --port /dev/ttyUSB0 --baud 460800 write_flash \\\n'
+            printf '  0x0000  bootloader.bin \\\n'
             printf '  0x8000  partition-table.bin \\\n'
-            printf '  0x10000 %s.bin\n' "$PROJECT_NAME"
+            printf '  0xF000  ota_data_initial.bin \\\n'
+            printf '  0x20000 %s.bin\n\n' "$PROJECT_NAME"
+            printf '注意：应用分区实际起始地址为 0x20000，不是 0x10000。\n'
+            printf 'OTA 分区: ota_0=0x20000, ota_1=0x420000。\n'
           } > firmware_package/FLASH_README.txt
+
           tar -czf "${PACKAGE_NAME}.tar.gz" firmware_package
           zip -qr "${PACKAGE_NAME}.zip" firmware_package
           echo "PACKAGE_NAME=${PACKAGE_NAME}" >> "$GITHUB_ENV"
+          echo "════════ 固件包内容 ════════"
           ls -lh "${PACKAGE_NAME}.tar.gz" "${PACKAGE_NAME}.zip"
           ls -lh firmware_package/
-
       - name: 上传固件 Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -325,7 +277,6 @@ jobs:
           if-no-files-found: error
           retention-days: 30
           compression-level: 6
-
       - name: 上传失败构建日志
         if: failure()
         uses: actions/upload-artifact@v4
@@ -336,7 +287,6 @@ jobs:
             sdkconfig
           if-no-files-found: ignore
           retention-days: 14
-
       - name: 生成构建摘要
         if: always()
         shell: bash
