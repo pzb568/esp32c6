@@ -14,6 +14,7 @@
 #include "driver/i2s_std.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_check.h"
 #include "esp_timer.h"
 #include "esp_http_client.h"
 #include "esp_err.h"

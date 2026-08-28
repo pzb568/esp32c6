@@ -8,6 +8,7 @@
 #include "freertos/event_groups.h"
 #include "esp_system.h"
 #include "esp_log.h"
+#include "esp_check.h"
 #include "mqtt_client.h"
 #include "mqtt_client_mgr.h"
 #include "config.h"

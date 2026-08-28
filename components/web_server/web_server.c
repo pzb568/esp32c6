@@ -13,6 +13,7 @@
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
+#include "esp_check.h"
 #include "esp_http_server.h"
 #include "esp_spiffs.h"
 #include "nvs_flash.h"
